@@ -42,7 +42,9 @@ jobs:
       - name: Run Python SVNNUE-v1/v2 versioned format checks
         run: python tests/nnue_v2_contract_test.py
       - name: Measure sparse-versus-dense CPU NNUE training kernels with exact parity
-        run: python tests/nnue_sparse_training_test.py | tee nnue-sparse-bench.log
+        run: mkdir -p build && python tests/nnue_sparse_training_test.py | tee build/nnue-sparse-bench.log
+      - name: Require a clean source tree before identity-bound materialization
+        run: test -z "$(git status --porcelain --untracked-files=normal)" || { git status --short; exit 1; }
       - name: Build actual C++ rule and v1/v2 NNUE engine
         run: make build ARCH=x86-64 JOBS=2
       - name: Audit native v2 castling rights and unchanged v1 features
