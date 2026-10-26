@@ -59,7 +59,7 @@ jobs:
         run: |
           python tools/nnue/generate.py \
             --engine build/engine/src/stockless-variants --variant "$TARGET" \
-            --games 12 --max-plies 96 --depth 2 --seed 20261029 \
+            --games 32 --max-plies 96 --depth 2 --seed 20261029 \
             --nnue-version 2 --rich-context \
             --output "build/v2/$TARGET/data"
       - name: Train versioned v2 network without mixing v1 features
