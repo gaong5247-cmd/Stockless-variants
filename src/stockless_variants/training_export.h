@@ -32,11 +32,11 @@ inline std::string training_json_string(const std::string& value) {
 // Export native Position state. No Python interpretation of FEN, piece letters,
 // board stride, Shogi promotion identities, or pocket syntax is involved.
 // This diagnostic command is deliberately limited to the standard UCI dialect.
-inline std::string training_features_json(const Position& pos) {
+inline std::string training_features_json(const Position& pos, bool v2 = false) {
     if (CurrentProtocol != UCI_GENERAL)
         return "{\"schema\":1,\"error\":\"nnuefeatures requires the uci protocol\"}";
 
-    const std::string descriptor = Neural::descriptor_json(pos.variant());
+    const std::string descriptor = Neural::descriptor_json(pos.variant(), v2);
     if (!Neural::supported_variant(pos.variant()))
         return "{\"schema\":1,\"descriptor\":" + descriptor
              + ",\"error\":\"unsupported training variant\"}";
@@ -44,7 +44,7 @@ inline std::string training_features_json(const Position& pos) {
         return "{\"schema\":1,\"descriptor\":" + descriptor
              + ",\"error\":\"Chess960 is not an SVNNUE-v1 training target\"}";
 
-    const auto features = Neural::sparse_features(pos);
+    const auto features = Neural::sparse_features(pos, v2);
     if (features.empty())
         return "{\"schema\":1,\"descriptor\":" + descriptor
              + ",\"error\":\"position has no valid SVNNUE features\"}";

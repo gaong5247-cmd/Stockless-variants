@@ -46,9 +46,15 @@ def manifest_info(paths, seed):
         if m.get("source_working_tree_dirty") is True:
             raise ValueError("Dirty teacher source is not supported for training")
         width, height, ids = d["width"], d["height"], d["type_ids"]
+        area = width * height
+        base = 2 * len(ids) * (area + 1)
+        expected_dim = (base if d.get("format_version") == d.get("feature_version") == 1
+                        else base + 2 * len(ids) * area + 4 + width + 6 * len(ids)
+                        if d.get("format_version") == d.get("feature_version") == 2
+                        else -1)
         if not (1 <= width <= 12 and 1 <= height <= 10 and ids == sorted(set(ids))
-                and d["input_dim"] == 2 * len(ids) * (width * height + 1)):
-            raise ValueError("Invalid native feature descriptor")
+                and d["input_dim"] == expected_dim):
+            raise ValueError("Invalid native v1/v2 feature descriptor")
         common = {k: m.get(k) for k in ("variant", "rules_sha256", "engine_sha256", "descriptor")}
         common["teacher"] = m.get("teacher")
         if reference is None:
@@ -78,7 +84,9 @@ def split_for_game(game_id, seed):
     return 1 if value == 0 else (2 if value == 1 else 0)
 
 
-def encode_features(features, dimension, area):
+def encode_features(features, dimension, area, base_dim=None):
+    if base_dim is None:
+        base_dim = dimension
     if not isinstance(features, list) or not features:
         raise ValueError("Missing sparse NNUE features")
     result = bytearray()
@@ -90,7 +98,7 @@ def encode_features(features, dimension, area):
             raise ValueError("Bad native feature pair")
         idx, value = entry
         if not (prev < idx < dimension and 1 <= value <= 512
-                and (idx % (area+1) == area or value == 1)):
+                and (idx >= base_dim or idx % (area + 1) == area or value == 1)):
             raise ValueError("Unsorted, duplicate, malformed or out-of-range native feature")
         mass += value
         prev = idx
@@ -220,7 +228,8 @@ def build_index(paths, output, seed=20261026):
                         if label != expected:
                             raise ValueError("Teacher label and perspective mismatch")
                         features = row["features"]
-                        blob = encode_features(features, desc["input_dim"], area)
+                        base_dim = 2 * len(desc["type_ids"]) * (area + 1)
+                        blob = encode_features(features, desc["input_dim"], area, base_dim)
                         key = hashlib.sha256(json.dumps([side, features], separators=(",", ":")).encode()).hexdigest()
                         bucket = int(key[:2], 16) % BUCKETS
                         cursor = db.execute(

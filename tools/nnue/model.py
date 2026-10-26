@@ -13,6 +13,7 @@ from typing import Mapping
 import numpy as np
 
 MAGIC = b"SVNNUE1\0"
+MAGIC_V2 = b"SVNNUE2\0"
 HEADER_BYTES = 160
 HIDDEN = 64
 QA = 256
@@ -34,7 +35,10 @@ def digest(path: Path) -> str:
 def validate_descriptor(d: Mapping) -> None:
     if d.get("supported") is not True or d.get("variant") not in VARIANTS:
         raise ValueError("SVNNUE-v1 supports only the five audited native variants")
-    expected = {"format_version": FORMAT_VERSION, "feature_version": FEATURE_VERSION,
+    version = d.get("format_version")
+    if type(version) is not int or version not in (1, 2):
+        raise ValueError("Unsupported SVNNUE network format")
+    expected = {"format_version": version, "feature_version": version,
                 "hidden_dim": HIDDEN, "qa": QA, "qb": QB}
     for name, value in expected.items():
         if d.get(name) != value:
@@ -44,8 +48,11 @@ def validate_descriptor(d: Mapping) -> None:
         raise ValueError("Invalid native board geometry")
     if not types or types != sorted(set(types)) or any(type(t) is not int or not 1 <= t <= 63 for t in types):
         raise ValueError("Piece types must be distinct, sorted native type IDs")
-    if d["input_dim"] != 2 * len(types) * (width * height + 1):
-        raise ValueError("Feature dimension does not match board/pocket layout")
+    area = width * height
+    base = 2 * len(types) * (area + 1)
+    expected_dim = base if version == 1 else base + 2 * len(types) * area + 4 + width + 6 * len(types)
+    if d["input_dim"] != expected_dim:
+        raise ValueError("Feature dimension does not match native SVNNUE-v1/v2 layout")
     rule_hash = d.get("rules_sha256", "")
     if len(rule_hash) != 64 or len(bytes.fromhex(rule_hash)) != 32:
         raise ValueError("Missing 256-bit rules identity")
@@ -99,8 +106,9 @@ def write_network(path: Path, d: Mapping, q: Mapping[str, np.ndarray]) -> None:
     payload = b"".join(np.asarray(q[key], dtype="<i4" if key in ("b1", "b2") else "<i2").tobytes(order="C")
                        for key in ("w1", "b1", "w2", "b2"))
     header = bytearray(HEADER_BYTES)
-    header[:8] = MAGIC
-    struct.pack_into("<10I", header, 8, FORMAT_VERSION, FEATURE_VERSION, HIDDEN,
+    version = d["format_version"]
+    header[:8] = MAGIC_V2 if version == 2 else MAGIC
+    struct.pack_into("<10I", header, 8, version, version, HIDDEN,
                      d["input_dim"], d["width"], d["height"], len(d["type_ids"]), QA, QB, len(payload))
     name = d["variant"].encode("ascii")
     if len(name) > 31:
@@ -119,10 +127,11 @@ def write_network(path: Path, d: Mapping, q: Mapping[str, np.ndarray]) -> None:
 def read_network(path: Path, d: Mapping) -> dict[str, np.ndarray]:
     validate_descriptor(d)
     data = path.read_bytes()
-    if not HEADER_BYTES <= len(data) <= MAX_FILE_BYTES or data[:8] != MAGIC:
+    expected_magic = MAGIC_V2 if d["format_version"] == 2 else MAGIC
+    if not HEADER_BYTES <= len(data) <= MAX_FILE_BYTES or data[:8] != expected_magic:
         raise ValueError("Invalid SVNNUE file magic/length")
     values = struct.unpack_from("<10I", data, 8)
-    expected = (FORMAT_VERSION, FEATURE_VERSION, HIDDEN, d["input_dim"], d["width"], d["height"],
+    expected = (d["format_version"], d["feature_version"], HIDDEN, d["input_dim"], d["width"], d["height"],
                 len(d["type_ids"]), QA, QB, len(data) - HEADER_BYTES)
     if values != expected or data[144:160] != bytes(16):
         raise ValueError("Incompatible SVNNUE header")

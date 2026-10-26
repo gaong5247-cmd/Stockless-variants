@@ -178,7 +178,8 @@ def load_dataset(directory: Path) -> tuple[dict, list[dict], list[dict]]:
                 index, value = pair
                 if type(index) is not int or type(value) is not int or not previous < index < d["input_dim"]:
                     raise ValueError("Features must have sorted, unique, in-range indices")
-                if value < 1 or (index % (area + 1) < area and value != 1):
+                base_dim = 2 * len(d["type_ids"]) * (area + 1)
+                if value < 1 or (index < base_dim and index % (area + 1) < area and value != 1):
                     raise ValueError("Invalid board indicator or pocket count")
                 norm += abs(value)
                 previous = index

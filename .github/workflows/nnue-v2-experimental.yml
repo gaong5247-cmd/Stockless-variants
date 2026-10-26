@@ -1,0 +1,83 @@
+name: Experimental native SVNNUE-v2 rich-input parity
+
+on:
+  push:
+    branches: [experimental/svnnue-v2]
+    paths:
+      - 'src/stockless_variants/**'
+      - 'tools/nnue/**'
+      - 'tools/patch_training.py'
+      - '.github/workflows/nnue-v2-experimental.yml'
+      - 'tests/nnue_v2_contract_test.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v2-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      TARGET: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned numerical trainer
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Run Python SVNNUE-v1/v2 versioned format checks
+        run: python tests/nnue_v2_contract_test.py
+      - name: Build actual C++ rule and v1/v2 NNUE engine
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Generate native games and versioned extra features from C++ Position
+        run: |
+          python tools/nnue/generate.py \
+            --engine build/engine/src/stockless-variants --variant "$TARGET" \
+            --games 12 --max-plies 96 --depth 2 --seed 20261029 \
+            --nnue-version 2 --rich-context \
+            --output "build/v2/$TARGET/data"
+      - name: Train versioned v2 network without mixing v1 features
+        run: |
+          python tools/nnue/train.py --data "build/v2/$TARGET/data" \
+            --output "build/v2/$TARGET/model" --epochs 8 --batch-size 64 \
+            --seed 20261029
+      - name: Verify native v2 inference, accumulator parity and legal search
+        run: |
+          python tools/nnue/validate.py \
+            --engine build/engine/src/stockless-variants \
+            --data "build/v2/$TARGET/data" \
+            --model-dir "build/v2/$TARGET/model" \
+            --report "build/v2/$TARGET/runtime-validation.json" --positions 32
+      - name: Require correct v2 magic and version in trained artifact
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          variant=os.environ["TARGET"]
+          model=Path("build/v2")/variant/"model"/(variant+".svnnue")
+          if model.read_bytes()[:8]!=b"SVNNUE2\x00":
+              raise SystemExit("Native v2 training exported wrong file magic")
+          report=json.loads((model.parent.parent/"runtime-validation.json").read_text())
+          if report["failed"]!=0 or report["passed"]<32:
+              raise SystemExit("Native v2 exact-integer parity gate failed")
+          print(variant,report["passed"],"native SVNNUE-v2 checks passed")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-pilot-${{ matrix.variant }}
+          path: build/v2/${{ matrix.variant }}/
+          retention-days: 14
+          if-no-files-found: warn
