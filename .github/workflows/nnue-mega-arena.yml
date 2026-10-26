@@ -1,0 +1,136 @@
+name: 1.247M NNUE vs Classical paired arena
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nnue-mega-arena.yml'
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: Color-swapped opening pairs per variant (1..128)
+        type: number
+        default: 24
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  arena:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      PAIRS: ${{ inputs.pairs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile the matching native rule engine
+        run: make build ARCH=x86-64 JOBS=2
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40314151101
+          name: mega-model-${{ matrix.variant }}-13ee01c4cca8618c84a753134a3410bdcb0954a0
+          github-token: ${{ github.token }}
+          path: build/mega-model
+      - name: Verify model provenance, SHA-256 and quantization gate
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          variant=os.environ['VARIANT']
+          root=Path('build/mega-model')
+          m=json.loads((root/'network-manifest.json').read_text())
+          metrics=json.loads((root/'metrics.json').read_text())
+          network=root/(variant+'.svnnue')
+          expected={
+            'chess':'9ab6b6bc2af8cadfd6e259564ce24c5f7bc7e982deca226f15329f82c2dfbf6f',
+            'shogi':'52654bfa29380d04e19d64b63d2f3c12237bf454ac607a56f99c58bab5c6d43c',
+            'janggi':'9082058315bda16a49dcb9beac53730d16d382596c8ff66a695d01e28718e480',
+            'xiangqi':'41c280b1c22e04a60aef79ad4407047b3639c6411444972a563f826d4393dd48',
+            'makruk':'e66311b6e9df710c1eb83a891e41b18a4b7cbd80833de4fec5e2b04b4e6eb72b'
+          }
+          actual=hashlib.sha256(network.read_bytes()).hexdigest()
+          assert actual==expected[variant]==m['network_sha256']
+          assert m['descriptor']['variant']==variant
+          assert metrics['quantization_passed'] and metrics['epochs_completed']==24
+          print(f'{variant}: VERIFIED model sha256={actual}; best epoch={metrics["selected_epoch"]}')
+          PY
+      - name: Actual paired engine matches with identical opening and color swaps
+        run: |
+          COUNT=24
+          if [ -n "$PAIRS" ]; then COUNT="$PAIRS"; fi
+          if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -lt 1 ] || [ "$COUNT" -gt 128 ]; then
+            echo 'pairs must be in 1..128' >&2
+            exit 1
+          fi
+          python3 tools/nnue/arena.py \
+            --engine build/engine/src/stockless-variants \
+            --model "build/mega-model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --pairs "$COUNT" --depth 3 \
+            --max-plies 240 --opening-plies 6 --seed 20261026 \
+            --output "build/mega-arena-$VARIANT.json"
+      - name: Summarize measured WDL (unfinished games kept censored)
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          path=Path('build')/f"mega-arena-{os.environ['VARIANT']}.json"
+          if not path.exists():
+              raise SystemExit('No match result produced')
+          r=json.loads(path.read_text())
+          lines=[f"### {r['variant']} NNUE (1.247M data) vs Classical",
+                 f"Games: {r['games']} — NNUE W/D/L: {r['wins']}/{r['draws']}/{r['losses']}",
+                 f"Unfinished: {r['censored']}. Completed-only score: {r['score_completed_only']}.",
+                 "This is a small paired depth-3 sample. Not an Elo or strength certification."]
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nnue-mega-arena-${{ matrix.variant }}
+          path: build/mega-arena-*.json
+          retention-days: 30
+          if-no-files-found: error
+
+  aggregate:
+    needs: arena
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nnue-mega-arena-*
+          path: reports
+          merge-multiple: true
+      - name: Check all variant reports and compute total scores from actual games
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os
+          results=list(Path('reports').glob('mega-arena-*.json'))
+          expected={'chess','shogi','janggi','xiangqi','makruk'}
+          parsed=[json.loads(p.read_text()) for p in results]
+          assert len(parsed)==5 and {r['variant'] for r in parsed}==expected
+          assert all(r['games']==len(r['games_records'])==2*r['pairs'] for r in parsed)
+          assert all(r['games']==r['wins']+r['draws']+r['losses']+r['censored'] for r in parsed)
+          totals={field:sum(r[field] for r in parsed) for field in ('games','wins','draws','losses','censored')}
+          lines=['## Experimental NNUE vs Classical summary',f"Total {totals['games']} games, NNUE W/D/L {totals['wins']}/{totals['draws']}/{totals['losses']}; unfinished {totals['censored']}.",
+                 'No Elo inferred; games have different rules and are not pooled for an Elo calculation.']
+          for r in sorted(parsed,key=lambda x:x['variant']):
+              lines.append(f"{r['variant']}: {r['wins']}/{r['draws']}/{r['losses']}; censored {r['censored']}")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          print(json.dumps(totals))
+          PY
