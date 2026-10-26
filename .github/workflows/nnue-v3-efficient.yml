@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   native-king-context:
@@ -47,6 +48,28 @@ jobs:
       - name: Confirm original v1 and v2 native feature and model loader behavior
         if: matrix.variant == 'chess'
         run: python tests/nnue_v2_contract_test.py
+      - name: Download original native v2 pilot data for v3 feature-only reencoding check
+        if: matrix.variant == 'chess'
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40322499811
+          name: v2-pilot-chess
+          github-token: ${{ github.token }}
+          path: build/v2-pilot-source
+      - name: Reencode identical legal states from old v2 to new v3 native features
+        if: matrix.variant == 'chess'
+        run: |
+          python tools/nnue/reencode_native_v3.py --source build/v2-pilot-source/data --output build/v3-reencoded-smoke --engine build/engine/src/stockless-variants
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          inp=json.loads(Path('build/v2-pilot-source/data/manifest.json').read_text())
+          new=json.loads(Path('build/v3-reencoded-smoke/manifest.json').read_text())
+          assert inp['rows']==new['rows'] and inp['game_count']==new['game_count']
+          assert new['descriptor']['format_version']==3 and new['source_data_feature_version']==2
+          assert new['original_teacher_scores_preserved'] and not new['relabeling']
+          print('PASS native v2-to-v3 feature reencoding',new['rows'],'rows')
+          PY
       - name: Generate 32 native v3 games with relative-king context
         run: python tools/nnue/generate.py --engine build/engine/src/stockless-variants --variant "$TARGET" --games 32 --max-plies 96 --depth 3 --nnue-version 3 --rich-context --seed 20261030 --output "build/v3/$TARGET/data"
       - name: Train CPU CSR king-relative v3 with real optimizer-state resumption
