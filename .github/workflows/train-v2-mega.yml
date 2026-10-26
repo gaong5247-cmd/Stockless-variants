@@ -1,0 +1,211 @@
+name: Native SVNNUE-v2 million-position self-play and training
+
+on:
+  push:
+    branches: [experimental/svnnue-v2]
+    paths:
+      - '.github/workflows/train-v2-mega.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-mega-nnue-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build identical pinned classical teacher
+        run: |
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/teacher
+          tar -czf build/teacher/native-teacher.tar.gz \
+            build/engine/src/stockless-variants \
+            build/engine/build-manifest.json
+          sha256sum build/engine/src/stockless-variants
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v2-mega-native-teacher
+          path: build/teacher/native-teacher.tar.gz
+          retention-days: 14
+          if-no-files-found: error
+
+  generate:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+        shard: [0, 1]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: v2-mega-native-teacher
+          path: build/teacher
+      - name: Restore exact identical teacher for all shards
+        run: |
+          tar -xzf build/teacher/native-teacher.tar.gz
+          chmod +x build/engine/src/stockless-variants
+      - name: Generate 1024 independent depth-4 games and native rich-state metadata
+        run: |
+          DATA_SEED=$((20261026 + SHARD * 1000000))
+          python tools/nnue/generate.py \
+            --engine build/engine/src/stockless-variants \
+            --variant "$VARIANT" --games 1024 --max-plies 160 \
+            --depth 4 --opening-plies 8 --seed "$DATA_SEED" \
+            --nnue-version 2 --rich-context --timeout 90 \
+            --output "build/v2mega/$VARIANT/$SHARD"
+      - name: Report actual count, checksum identity and truncations
+        run: |
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          p=Path('build/mega')/os.environ['VARIANT']/os.environ['SHARD']/'manifest.json'
+          m=json.loads(p.read_text())
+          assert m['game_count']==1024 and m['native_context_version']==2
+          assert m['descriptor']['format_version']==m['descriptor']['feature_version']==2
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"## {m['variant']} shard {os.environ['SHARD']}\n")
+              f.write(f"Actual games: {m['game_count']}; labeled positions: {m['rows']}; ")
+              f.write(f"finished: {m['completed_games']}; censored: {m['truncated_games']}.\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v2-mega-data-${{ matrix.variant }}-${{ matrix.shard }}
+          path: build/v2mega/${{ matrix.variant }}/${{ matrix.shard }}/
+          retention-days: 14
+          compression-level: 9
+          if-no-files-found: error
+
+  train:
+    needs: [prepare, generate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pin CPU NumPy dependency
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: v2-mega-native-teacher
+          path: build/teacher
+      - name: Restore matching engine runtime
+        run: |
+          tar -xzf build/teacher/native-teacher.tar.gz
+          chmod +x build/engine/src/stockless-variants
+      - uses: actions/download-artifact@v4
+        with:
+          name: v2-mega-data-${{ matrix.variant }}-0
+          path: build/v2mega-input/${{ matrix.variant }}/0
+      - uses: actions/download-artifact@v4
+        with:
+          name: v2-mega-data-${{ matrix.variant }}-1
+          path: build/v2mega-input/${{ matrix.variant }}/1
+      - name: Train real v2 rich-input network with full Adam resume to 24 epochs
+        run: |
+          COMMON="--data build/v2mega-input/$VARIANT/0 build/v2mega-input/$VARIANT/1 \
+                  --output build/v2mega-model/$VARIANT --seed 20261026 \
+                  --epochs 24 --batch-size 256"
+          python tools/nnue/train_stream.py $COMMON --stop-after-epoch 4
+          python tools/nnue/train_stream.py $COMMON --resume
+      - name: Gate on v2 frozen heldout native features and C++ integer search
+        run: |
+          python tools/nnue/validate_stream.py \
+            --engine build/engine/src/stockless-variants \
+            --index "build/v2mega-model/$VARIANT/index.sqlite3" \
+            --model-dir "build/v2mega-model/$VARIANT" \
+            --report "build/v2mega-model/$VARIANT/native-validation.json" --positions 128
+      - name: Report measured sample counts and test errors, not strength
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path('build/mega-model')/os.environ['VARIANT']
+          lines=['## '+os.environ['VARIANT']+' independent mega NNUE']
+          if (p/'index-summary.json').exists():
+              d=json.loads((p/'index-summary.json').read_text())
+              lines.append(f"Rows read: {d['rows_read']}; unique retained: {d['rows_indexed']}.")
+          if (p/'metrics.json').exists():
+              m=json.loads((p/'metrics.json').read_text())
+              lines.append(f"Epochs: {m['epochs_completed']}; updates: {m['gradient_steps']}; best epoch: {m['selected_epoch']}.")
+              lines.append(f"Heldout teacher MAE: {m['test_teacher_approximation']['mae_cp']:.2f} cp.")
+              lines.append(f"Quantization passed: {m['quantization_passed']}; no playing strength/Elo claim.")
+          if (p/'native-validation.json').exists():
+              n=json.loads((p/'native-validation.json').read_text())
+              lines.append(f"Actual native checks: {n['checks']}, failed: {n['failed']}.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-mega-model-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/v2mega-model/${{ matrix.variant }}/*.svnnue
+            build/v2mega-model/${{ matrix.variant }}/state-epoch-*.npz
+            build/v2mega-model/${{ matrix.variant }}/latest.json
+            build/v2mega-model/${{ matrix.variant }}/metrics.json
+            build/v2mega-model/${{ matrix.variant }}/index-summary.json
+            build/v2mega-model/${{ matrix.variant }}/network-manifest.json
+            build/v2mega-model/${{ matrix.variant }}/native-validation.json
+          retention-days: 30
+          if-no-files-found: error
+
+  summarize:
+    needs: train
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v2-mega-model-*
+          path: build/all-models
+          merge-multiple: false
+      - name: Calculate actual multi-variant dataset size, never estimate
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          datasets=list(Path('build/all-models').glob('*/index-summary.json'))
+          if len(datasets)!=5:
+              raise SystemExit(f'Missing trained variant reports: {len(datasets)}/5')
+          total=0
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## Native SVNNUE-v2 million-plus data campaign\n\n')
+              for file in sorted(datasets):
+                  d=json.loads(file.read_text())
+                  total+=d['rows_read']
+                  f.write(f"- {d['variant']}: {d['rows_read']} generated positions, {d['rows_indexed']} distinct inputs\n")
+              f.write(f"\n**Actual total: {total:,} native generated positions.**\n")
+              f.write('Data count is not Elo or playing-strength evidence.\n')
+          if total<1000000:
+              raise SystemExit(f'Million-position objective NOT MET; only {total} actual rows')
+          print(json.dumps({'actual_positions':total,'target_met':True,'network_format':'SVNNUE-v2'}))
+          PY
