@@ -1,0 +1,191 @@
+name: Archive verified million-position NNUE research corpus
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/archive-mega-nnue.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: stockless-variants-mega-data-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'gaong5247-cmd/Stockless-variants'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the exact finished training experiment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          endpoint="repos/gaong5247-cmd/Stockless-variants/actions/runs/40314151101"
+          test "$(gh api "$endpoint" --jq .conclusion)" = success
+          test "$(gh api "$endpoint" --jq .head_sha)" = "13ee01c4cca8618c84a753134a3410bdcb0954a0"
+      - uses: actions/download-artifact@v4
+        with:
+          repository: gaong5247-cmd/Stockless-variants
+          run-id: 40314151101
+          pattern: mega-data-*
+          path: incoming
+          merge-multiple: false
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          repository: gaong5247-cmd/Stockless-variants
+          run-id: 40314151101
+          pattern: mega-model-*
+          path: incoming
+          merge-multiple: false
+          github-token: ${{ github.token }}
+      - name: Reverify every dataset, model and native check; preserve originals
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, zipfile
+          from pathlib import Path
+          sha="13ee01c4cca8618c84a753134a3410bdcb0954a0"
+          kinds=("chess","shogi","janggi","xiangqi","makruk")
+          dest=Path("release-assets")
+          dest.mkdir()
+          asset_hashes={}
+          index={"schema":1,"source_commit":sha,"run_id":40314151101,
+                 "model_format":"SVNNUE-v1","not_a_strength_claim":True,
+                 "game_count":0,"generated_positions":0,"unique_inputs":0,"models":{}}
+          rules=teacher=None
+          def hash_file(path):
+              h=hashlib.sha256()
+              with path.open("rb") as inp:
+                  for block in iter(lambda:inp.read(1048576),b""): h.update(block)
+              return h.hexdigest()
+          def only(root,name):
+              found=list(root.rglob(name))
+              if len(found)!=1: raise ValueError(f"Expected one {name} in {root}; got {len(found)}")
+              return found[0]
+          licenses=[(Path("LICENSE"),"LICENSE"),(Path("NOTICE.md"),"NOTICE.md")]
+          def package(name,files):
+              zip_path=dest/name
+              with zipfile.ZipFile(zip_path,"w",compression=zipfile.ZIP_DEFLATED,
+                                   compresslevel=7,allowZip64=True) as z:
+                  for path,arcname in files: z.write(path,arcname)
+              with zipfile.ZipFile(zip_path) as z:
+                  if z.testzip() is not None: raise ValueError("ZIP integrity failure: "+name)
+              asset_hashes[name]={"sha256":hash_file(zip_path),"bytes":zip_path.stat().st_size}
+          for variant in kinds:
+              count=0
+              for shard in range(2):
+                  root=Path("incoming")/f"mega-data-{variant}-{shard}"
+                  path=only(root,"manifest.json")
+                  m=json.loads(path.read_text())
+                  if (m.get("variant")!=variant or m.get("game_count")!=1024
+                      or m.get("native_context_version")!=2
+                      or m.get("source_commit")!=sha
+                      or m.get("source_working_tree_dirty") is not False):
+                      raise ValueError("Invalid generation identity")
+                  if rules is None: rules=m["rules_sha256"]
+                  if teacher is None: teacher=m["engine_sha256"]
+                  if rules!=m["rules_sha256"] or teacher!=m["engine_sha256"]:
+                      raise ValueError("Inconsistent rules/teacher")
+                  files=[(path,"manifest.json")]
+                  for name in ("positions.jsonl","games.jsonl"):
+                      file=path.parent/name
+                      expected=m["files"][name]
+                      if file.stat().st_size!=expected["bytes"] or hash_file(file)!=expected["sha256"]:
+                          raise ValueError("Corrupt source file: "+str(file))
+                      with file.open("rb") as stream:
+                          lines=sum(1 for _ in stream)
+                      if lines!=(m["rows"] if name=="positions.jsonl" else 1024):
+                          raise ValueError("Incorrect source row count")
+                      files.append((file,name))
+                  package(f"nnue-{variant}-data-{shard}.zip",files+licenses)
+                  count+=m["rows"]
+                  index["game_count"]+=m["game_count"]
+              root=Path("incoming")/f"mega-model-{variant}-{sha}"
+              manifest=only(root,"network-manifest.json")
+              network=only(root,f"{variant}.svnnue")
+              metrics=only(root,"metrics.json")
+              summary=only(root,"index-summary.json")
+              validation=only(root,"native-validation.json")
+              m=json.loads(manifest.read_text())
+              tr=json.loads(metrics.read_text())
+              ix=json.loads(summary.read_text())
+              va=json.loads(validation.read_text())
+              if (m["descriptor"]["variant"]!=variant
+                  or m["descriptor"]["rules_sha256"]!=rules
+                  or hash_file(network)!=m["network_sha256"]
+                  or tr.get("epochs_completed")!=24
+                  or tr.get("quantization_passed") is not True
+                  or ix.get("rows_read")!=count or ix.get("variant")!=variant
+                  or va.get("failed")!=0 or va.get("checks")!=132
+                  or va.get("network_sha256")!=m["network_sha256"]
+                  or va.get("stream_index_signature")!=ix["signature"]):
+                  raise ValueError("Model, checksum, or native test mismatch: "+variant)
+              files=[(f,f.name) for f in root.rglob("*") if f.is_file()]
+              package(f"nnue-{variant}-model-and-optimizer.zip",files+licenses)
+              index["generated_positions"]+=count
+              index["unique_inputs"]+=ix["rows_indexed"]
+              index["models"][variant]={
+                  "generated":count,"unique":ix["rows_indexed"],
+                  "selected_epoch":tr["selected_epoch"],
+                  "epochs":tr["epochs_completed"],
+                  "optimizer_steps":tr["gradient_steps"],
+                  "test_mae_cp":tr["test_teacher_approximation"]["mae_cp"],
+                  "network_sha256":m["network_sha256"],
+                  "native_checks_passed":va["checks"],
+                  "strength_certified":False}
+              print(f"{variant}: {count} native positions, {ix['rows_indexed']} unique")
+          if (len(asset_hashes)!=15 or index["game_count"]!=10240
+              or index["generated_positions"]<1000000
+              or sum(m["native_checks_passed"] for m in index["models"].values())!=660):
+              raise ValueError("Incomplete source campaign or model set")
+          index["rules_sha256"]=rules
+          index["teacher_sha256"]=teacher
+          index["assets"]=asset_hashes
+          (dest/"EXPERIMENT_MANIFEST.json").write_text(json.dumps(index,sort_keys=True,indent=2)+"\n")
+          (dest/"SHA256SUMS.txt").write_text("".join(
+              rec["sha256"]+"  "+name+"\n" for name,rec in sorted(asset_hashes.items())))
+          notes=(
+              "# Independent NNUE research dataset (experimental)\n\n"
+              "Source commit: "+sha+"\n\n"
+              "Training run: https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40314151101\n\n"
+              "Measured native games: "+str(index["game_count"])+"\n\n"
+              "Actual native labeled positions: "+str(index["generated_positions"])+"\n\n"
+              "Unique model inputs: "+str(index["unique_inputs"])+"\n\n"
+              "This prerelease preserves 10 exact data shards and 5 NNUE models with "
+              "full Adam optimizer checkpoints, manifests, provenance, licenses and "
+              "SHA256SUMS.txt. Rich native game context is diagnostic only; the deployed "
+              "SVNNUE-v1 model does not yet consume these extra features. "
+              "Classical was stronger in the bounded paired arena; no Elo gain claimed. "
+              "This is separate from, and does not replace, the latest engine release.\n"
+          )
+          Path("release-notes.md").write_text(notes)
+          print(json.dumps({"games":index["game_count"],
+                            "native_positions":index["generated_positions"],
+                            "unique":index["unique_inputs"],"packages":len(asset_hashes)}))
+          PY
+      - name: Publish a separate research prerelease, never update latest engine
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="nnue-corpus-1.247m-20261026"
+          source_sha="13ee01c4cca8618c84a753134a3410bdcb0954a0"
+          if gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            target="$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json targetCommitish --jq .targetCommitish)"
+            test "$target" = "$source_sha"
+            gh release upload "$tag" release-assets/* -R "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$tag" -R "$GITHUB_REPOSITORY" --notes-file release-notes.md --prerelease
+          else
+            gh release create "$tag" release-assets/* -R "$GITHUB_REPOSITORY" \
+              --target "$source_sha" --title "NNUE 1.247M native corpus (research)" \
+              --notes-file release-notes.md --prerelease
+          fi
+          gh release view "$tag" -R "$GITHUB_REPOSITORY" --json url,isPrerelease,assets \
+            --jq '{url,isPrerelease,assets:(.assets|length)}'
