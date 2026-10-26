@@ -51,6 +51,8 @@ def manifest_info(paths, seed):
         expected_dim = (base if d.get("format_version") == d.get("feature_version") == 1
                         else base + 2 * len(ids) * area + 4 + width + 6 * len(ids)
                         if d.get("format_version") == d.get("feature_version") == 2
+                        else base + 2 * len(ids) * area + 4 + width + 6 * len(ids) + 64 * len(ids)
+                        if d.get("format_version") == d.get("feature_version") == 3
                         else -1)
         if not (1 <= width <= 12 and 1 <= height <= 10 and ids == sorted(set(ids))
                 and d["input_dim"] == expected_dim):

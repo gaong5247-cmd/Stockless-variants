@@ -130,7 +130,8 @@ class Engine:
         self.send("position startpos" + (" moves " + " ".join(moves) if moves else ""))
 
     def features(self) -> dict:
-        self.send("nnuefeaturesv2" if self.feature_version == 2 else "nnuefeatures")
+        command = "nnuefeatures" if self.feature_version == 1 else "nnuefeaturesv2" if self.feature_version == 2 else "nnuefeaturesv3"
+        self.send(command)
         response = self.until(lambda line: line.startswith(FEATURE_PREFIX))[-1]
         state = json.loads(response[len(FEATURE_PREFIX):])
         if "error" in state:
@@ -182,7 +183,7 @@ def validate_state(state: dict, variant: str, expected: dict | None = None) -> d
         raise ValueError("unsupported native export schema or descriptor")
     version = descriptor.get("format_version")
     if (descriptor.get("variant") != variant or type(version) is not int
-            or version not in (1, 2) or descriptor.get("feature_version") != version):
+            or version not in (1, 2, 3) or descriptor.get("feature_version") != version):
         raise ValueError("native descriptor variant/feature version mismatch")
     if not re.fullmatch(r"[0-9a-f]{64}", str(descriptor.get("rules_sha256", ""))):
         raise ValueError("missing native rule digest")
@@ -196,7 +197,9 @@ def validate_state(state: dict, variant: str, expected: dict | None = None) -> d
         raise ValueError("invalid native board/type descriptor")
     area = width * height
     base = 2 * len(types) * (area + 1)
-    dimension = base if version == 1 else base + 2 * len(types) * area + 4 + width + 6 * len(types)
+    dimension = (base if version == 1 else
+                 base + 2 * len(types) * area + 4 + width + 6 * len(types)
+                 + (64 * len(types) if version == 3 else 0))
     if (descriptor.get("input_dim") != dimension or descriptor.get("hidden_dim") != 64
             or descriptor.get("qa") != 256 or descriptor.get("qb") != 64):
         raise ValueError("native descriptor architecture mismatch")
@@ -284,7 +287,7 @@ def generate(args: argparse.Namespace) -> dict:
     started = time.monotonic()
     engine = Engine(executable, args.timeout)
     engine.feature_version = args.nnue_version
-    generator_version = GENERATOR_VERSION if args.nnue_version == 1 else "svnnue-selfplay-v2"
+    generator_version = f"svnnue-selfplay-v{args.nnue_version}" if args.nnue_version > 1 else GENERATOR_VERSION
     positions_path, games_path = output / "positions.jsonl", output / "games.jsonl"
     row_count = completed = truncated = skipped_labels = 0
     opening_plies = min(args.opening_plies, args.max_plies // 4)
@@ -448,7 +451,7 @@ def main() -> int:
     parser.add_argument("--opening-plies", type=bounded_int(0, 32), default=8)
     parser.add_argument("--timeout", type=bounded_int(1, 600), default=60)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--nnue-version", type=bounded_int(1, 2), default=1,
+    parser.add_argument("--nnue-version", type=bounded_int(1, 3), default=1,
                         help="1 stable SVNNUE-v1, 2 experimental native v2 inputs")
     parser.add_argument("--rich-context", action="store_true",
                         help="record native promoted lineage, rights and variant-region statistics for future SVNNUE-v2 work")

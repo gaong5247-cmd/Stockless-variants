@@ -14,6 +14,7 @@ import numpy as np
 
 MAGIC = b"SVNNUE1\0"
 MAGIC_V2 = b"SVNNUE2\0"
+MAGIC_V3 = b"SVNNUE3\0"
 HEADER_BYTES = 160
 HIDDEN = 64
 QA = 256
@@ -36,7 +37,7 @@ def validate_descriptor(d: Mapping) -> None:
     if d.get("supported") is not True or d.get("variant") not in VARIANTS:
         raise ValueError("SVNNUE-v1 supports only the five audited native variants")
     version = d.get("format_version")
-    if type(version) is not int or version not in (1, 2):
+    if type(version) is not int or version not in (1, 2, 3):
         raise ValueError("Unsupported SVNNUE network format")
     expected = {"format_version": version, "feature_version": version,
                 "hidden_dim": HIDDEN, "qa": QA, "qb": QB}
@@ -50,7 +51,9 @@ def validate_descriptor(d: Mapping) -> None:
         raise ValueError("Piece types must be distinct, sorted native type IDs")
     area = width * height
     base = 2 * len(types) * (area + 1)
-    expected_dim = base if version == 1 else base + 2 * len(types) * area + 4 + width + 6 * len(types)
+    expected_dim = (base if version == 1 else
+                    base + 2 * len(types) * area + 4 + width + 6 * len(types)
+                    + (64 * len(types) if version == 3 else 0))
     if d["input_dim"] != expected_dim:
         raise ValueError("Feature dimension does not match native SVNNUE-v1/v2 layout")
     rule_hash = d.get("rules_sha256", "")
@@ -107,7 +110,7 @@ def write_network(path: Path, d: Mapping, q: Mapping[str, np.ndarray]) -> None:
                        for key in ("w1", "b1", "w2", "b2"))
     header = bytearray(HEADER_BYTES)
     version = d["format_version"]
-    header[:8] = MAGIC_V2 if version == 2 else MAGIC
+    header[:8] = MAGIC if version == 1 else MAGIC_V2 if version == 2 else MAGIC_V3
     struct.pack_into("<10I", header, 8, version, version, HIDDEN,
                      d["input_dim"], d["width"], d["height"], len(d["type_ids"]), QA, QB, len(payload))
     name = d["variant"].encode("ascii")
@@ -127,7 +130,7 @@ def write_network(path: Path, d: Mapping, q: Mapping[str, np.ndarray]) -> None:
 def read_network(path: Path, d: Mapping) -> dict[str, np.ndarray]:
     validate_descriptor(d)
     data = path.read_bytes()
-    expected_magic = MAGIC_V2 if d["format_version"] == 2 else MAGIC
+    expected_magic = MAGIC if d["format_version"] == 1 else MAGIC_V2 if d["format_version"] == 2 else MAGIC_V3
     if not HEADER_BYTES <= len(data) <= MAX_FILE_BYTES or data[:8] != expected_magic:
         raise ValueError("Invalid SVNNUE file magic/length")
     values = struct.unpack_from("<10I", data, 8)
