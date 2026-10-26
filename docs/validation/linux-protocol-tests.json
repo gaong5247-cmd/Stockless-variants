@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "engine": "build/engine/src/stockless-variants",
+  "engine_sha256": "7dbb3e00afbfc04ef80875852d23ca14b75341845b8cad31666de49c24bb3bef",
+  "passed": 24,
+  "failed": 0,
+  "results": [
+    {
+      "test": "pinned_variants_ini_accepts_supported_syntax",
+      "passed": true
+    },
+    {
+      "test": "repeated_ini_keys_keep_last_assignment_semantics",
+      "passed": true
+    },
+    {
+      "test": "unknown_attribute",
+      "passed": true
+    },
+    {
+      "test": "unknown_template",
+      "passed": true
+    },
+    {
+      "test": "invalid_boolean",
+      "passed": true
+    },
+    {
+      "test": "invalid_number",
+      "passed": true
+    },
+    {
+      "test": "invalid_board_size",
+      "passed": true
+    },
+    {
+      "test": "invalid_region",
+      "passed": true
+    },
+    {
+      "test": "negative_region",
+      "passed": true
+    },
+    {
+      "test": "unsupported_betza",
+      "passed": true
+    },
+    {
+      "test": "missing_section",
+      "passed": true
+    },
+    {
+      "test": "missing_value",
+      "passed": true
+    },
+    {
+      "test": "invalid_fen",
+      "passed": true
+    },
+    {
+      "test": "incompatible_rules",
+      "passed": true
+    },
+    {
+      "test": "missing_file_fails",
+      "passed": true
+    },
+    {
+      "test": "invalid_config_does_not_partially_register_variants",
+      "passed": true
+    },
+    {
+      "test": "variant_name_and_config_path_aliases",
+      "passed": true
+    },
+    {
+      "test": "variant_switch_clears_search_and_evaluation_caches_without_newgame",
+      "passed": true
+    },
+    {
+      "test": "classical_default_and_explicit_backend_capabilities",
+      "passed": true
+    },
+    {
+      "test": "invalid_position_and_move_sequences_leave_previous_state_intact",
+      "passed": true
+    },
+    {
+      "test": "invalid_options_and_unvalidated_nnue_activation_are_rejected",
+      "passed": true
+    },
+    {
+      "test": "option_mutation_stops_and_joins_infinite_search",
+      "passed": true
+    },
+    {
+      "test": "position_mutation_stops_and_joins_infinite_search",
+      "passed": true
+    },
+    {
+      "test": "sfen_validation_and_transaction",
+      "passed": true
+    }
+  ],
+  "source_commit": "f985a5b187defbbac52c581a8518d96d3df69f46",
+  "working_tree_dirty_at_materialization": false
+}

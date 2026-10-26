@@ -1,0 +1,6 @@
+[submodule "upstream/fairy-stockfish"]
+	path = upstream/fairy-stockfish
+	url = https://github.com/fairy-stockfish/Fairy-Stockfish.git
+[submodule "upstream/stockless"]
+	path = upstream/stockless
+	url = https://github.com/gaong5247-cmd/Stockless.git

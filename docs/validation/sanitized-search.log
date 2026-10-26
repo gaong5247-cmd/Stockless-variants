@@ -1,0 +1,11 @@
+PASS bughouse bestmove e2e4 ponder d7d6
+PASS supply bestmove h1g3 ponder i10i9
+PASS ataxx bestmove P@f2 ponder a1c2
+PASS seirawan bestmove e2e4 ponder d7d6
+PASS shouse bestmove H@e5 ponder b7b6
+PASS atomic bestmove d2d4 ponder b7b6
+PASS crazyhouse bestmove e2e3 ponder c7c6
+PASS shogi bestmove c3c4 ponder b8c8
+PASS janggi bestmove b1c3 ponder a10a9
+PASS xiangqi bestmove b1c3 ponder a10a9
+PASS duck bestmove d2d4,d4c3 ponder a7a6,a6a3

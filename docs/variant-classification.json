@@ -1,0 +1,1017 @@
+{
+  "schema_version": 1,
+  "reviewed_date": "2026-10-26",
+  "definitions": {
+    "Native": "A rule implementation exists in the pinned core; not an assertion of independent validation, engine strength or release approval.",
+    "Adapted": "Existing core/configuration or presentation mechanisms can cover part or all of the requested variant after specified adaptation and tests.",
+    "New Rules": "Additional rule/state/move code is required within a broadly two-player engine architecture.",
+    "Special Architecture": "A coordinator, multiplayer model, single-player solver or observation-only search is required beyond the current complete two-player position model."
+  },
+  "games": [
+    {
+      "id": "standard",
+      "name": "Standard Chess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "chess",
+        "normal"
+      ],
+      "notes": "Source implementation exists; runtime and Stockless-policy tests are separate.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "chess960",
+      "name": "Chess960 / Fischer Random",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "fischerandom"
+      ],
+      "notes": "Use the fischerandom registry ID or UCI_Chess960 option with an explicit legal start FEN; no random position generator is implied.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "no_castling",
+      "name": "No Castling",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "nocastle"
+      ],
+      "notes": "Castling disabled in both rules and initial FEN.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "three_check",
+      "name": "3-Check",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "3check"
+      ],
+      "notes": "Check counters are part of state/FEN and terminal adjudication.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "n_check",
+      "name": "N-Check",
+      "group": "A",
+      "classification": "Adapted",
+      "core_ids": [
+        "3check",
+        "5check"
+      ],
+      "notes": "3-check and 5-check exist. Other bounded counts need validated config/FEN handling; current FEN parser reads single-character counters. Arbitrary unbounded N is not supported.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "king_of_the_hill",
+      "name": "King of the Hill",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "kingofthehill"
+      ],
+      "notes": "Center flag-square victory exists; king safety and terminal fixtures remain separate evidence.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "racing_kings",
+      "name": "Racing Kings",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "racingkings"
+      ],
+      "notes": "Race objective, no-check movement and response move are core rules.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "horde",
+      "name": "Horde",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "horde"
+      ],
+      "notes": "36-pawn starting army and first/second-rank double steps exist; verify Chess.com edge cases independently.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8708676-what-is-horde-chess",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "atomic",
+      "name": "Atomic",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "atomic"
+      ],
+      "notes": "Explosions and pseudo-royal king rules exist; no new NNUE or measured strength is implied.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8615237-what-is-atomic-chess",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "crazyhouse",
+      "name": "Crazyhouse",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "crazyhouse"
+      ],
+      "notes": "Single-board pocket/drop rules exist; promotion demotion and pawn-drop limits need targeted validation.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8614995-what-is-crazyhouse",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "giveaway_antichess",
+      "name": "Giveaway / Antichess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "giveaway",
+        "antichess"
+      ],
+      "notes": "These IDs are different rulesets: FSF giveaway allows castling, antichess prohibits it. Chess.com Giveaway maps to antichess.",
+      "rule_parity": "known_name_difference",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8659140-what-is-giveaway-chess",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "seirawan",
+      "name": "Seirawan Chess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "seirawan"
+      ],
+      "notes": "Pinned core rules exist; board dimensions, castling/gating/promotion and terminal rules require variant-specific tests.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "capablanca",
+      "name": "Capablanca Chess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "capablanca"
+      ],
+      "notes": "Pinned core rules exist; board dimensions, castling/gating/promotion and terminal rules require variant-specific tests.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "gothic",
+      "name": "Gothic Chess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "gothic"
+      ],
+      "notes": "Pinned core rules exist; board dimensions, castling/gating/promotion and terminal rules require variant-specific tests.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "grand",
+      "name": "Grand Chess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "grand"
+      ],
+      "notes": "Pinned core rules exist; board dimensions, castling/gating/promotion and terminal rules require variant-specific tests.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "embassy",
+      "name": "Embassy Chess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "embassy"
+      ],
+      "notes": "Pinned core rules exist; board dimensions, castling/gating/promotion and terminal rules require variant-specific tests.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "janus",
+      "name": "Janus Chess",
+      "group": "A",
+      "classification": "Native",
+      "core_ids": [
+        "janus"
+      ],
+      "notes": "Pinned core rules exist; board dimensions, castling/gating/promotion and terminal rules require variant-specific tests.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "different_armies",
+      "name": "Chess with Different Armies",
+      "group": "A",
+      "classification": "Adapted",
+      "core_ids": [],
+      "notes": "Asymmetric pieces and configurable armies are expressible in part; exact army pairings, special castling and promotion rules are not a complete implemented game. Do not alias to Spartan or another asymmetric game.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "duck",
+      "name": "Duck Chess",
+      "group": "B",
+      "classification": "Native",
+      "core_ids": [
+        "duck"
+      ],
+      "notes": "ALLVARS required. A turn is a compound chess move plus mandatory duck relocation; no check, king capture, stalemated side wins. Test compound move notation and end-of-turn semantics.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8615411-what-is-duck-chess",
+        "https://www.chess.com/terms/duck-chess",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "torpedo",
+      "name": "Torpedo Chess",
+      "group": "B",
+      "classification": "Native",
+      "core_ids": [
+        "torpedo"
+      ],
+      "notes": "Pawns may double-step from any eligible rank; en passant must work after such steps anywhere on board.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8705335-what-is-torpedo-chess",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "sideways_pawns",
+      "name": "Sideways Pawns",
+      "group": "B",
+      "classification": "Native",
+      "core_ids": [
+        "pawnsideways"
+      ],
+      "notes": "Sideways pawn movement is non-capturing; ordinary diagonal captures and pawn special rules remain.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8708719-what-is-sideways-pawns-chess",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "capture_anything",
+      "name": "Capture Anything",
+      "group": "B",
+      "classification": "New Rules",
+      "core_ids": [],
+      "notes": "Friendly captures need move generation, make/unmake, hash and royal-safety changes. FSF capture means mandatory captures, not Capture Anything.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8708660-what-is-capture-anything-chess",
+        "https://www.chess.com/terms/capture-anything-chess"
+      ]
+    },
+    {
+      "id": "fog_of_war",
+      "name": "Fog of War",
+      "group": "B",
+      "classification": "Special Architecture",
+      "core_ids": [],
+      "notes": "Needs observation-only input and belief-state search. No-check king capture alone does not implement hidden information. Hidden opponent pieces must never be accessible to the playing search.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8708650-what-is-fog-of-war-chess"
+      ]
+    },
+    {
+      "id": "spell",
+      "name": "Spell Chess",
+      "group": "B",
+      "classification": "New Rules",
+      "core_ids": [],
+      "notes": "Requires per-player spell stock/cooldown, freeze/jump state, compound actions, and adjudication. No built-in parity is claimed.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8588083-what-is-spell-chess"
+      ]
+    },
+    {
+      "id": "bughouse",
+      "name": "Bughouse",
+      "group": "B",
+      "classification": "Special Architecture",
+      "core_ids": [
+        "bughouse"
+      ],
+      "notes": "FSF has a local-board rules/search adapter (twoBoards); a complete game needs synchronized partner pockets, clocks, transfers, terminal rules and a coordinator.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8615092-what-is-bughouse",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "four_player",
+      "name": "4-Player Chess",
+      "group": "B",
+      "classification": "Special Architecture",
+      "core_ids": [],
+      "notes": "Four colors and turn order plus 14x14 cross geometry exceed the two-color 12x10 core; Teams and FFA require separate utility and adjudication.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8614233-4-player-chess-4pc"
+      ]
+    },
+    {
+      "id": "team_chess",
+      "name": "Team Chess (4PC Teams)",
+      "group": "B",
+      "classification": "Special Architecture",
+      "core_ids": [],
+      "notes": "Partner across board, no partner captures, promotion rank 11, team win at opponent checkmate on their turn. Requires four-player team search.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8614233-4-player-chess-4pc"
+      ]
+    },
+    {
+      "id": "free_for_all",
+      "name": "Free-for-All Chess (4PC FFA)",
+      "group": "B",
+      "classification": "Special Architecture",
+      "core_ids": [],
+      "notes": "Point-scored four-player game with eliminations, inactive pieces and rank-8 promotion. Two-player negamax is not an equivalent model.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8614233-4-player-chess-4pc"
+      ]
+    },
+    {
+      "id": "chaturanga",
+      "name": "Chaturanga (Chess.com rules)",
+      "group": "B",
+      "classification": "Adapted",
+      "core_ids": [
+        "chaturanga"
+      ],
+      "notes": "Official help says white king d1 and ferz e1; pinned FSF starts king e1. The terms article confirms stalemate is a loss; black placement, promotion and move-limit parity still need fixtures. Do not substitute Shatranj.",
+      "rule_parity": "known_start_position_difference",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8648829-what-is-chaturanga",
+        "https://www.chess.com/terms/chaturanga-game",
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "solo_chess",
+      "name": "Solo Chess (capture puzzle)",
+      "group": "B",
+      "classification": "Special Architecture",
+      "core_ids": [],
+      "notes": "Single-player solver with same-color captures, at most two captures per piece, and king as final survivor. Distinct from 4PC Solo scoring.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8588122-what-is-solo-chess"
+      ]
+    },
+    {
+      "id": "shogi",
+      "name": "Standard Shogi",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "shogi"
+      ],
+      "notes": "Pinned per-game promotion/drop/repetition rules exist. USI and edge-case tests are separate; tournament-specific entering-king rules are not universally certified.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "mini_shogi",
+      "name": "Mini Shogi",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "minishogi"
+      ],
+      "notes": "Pinned per-game promotion/drop/repetition rules exist. USI and edge-case tests are separate; tournament-specific entering-king rules are not universally certified.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "kyoto_shogi",
+      "name": "Kyoto Shogi",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "kyotoshogi"
+      ],
+      "notes": "Pinned per-game promotion/drop/repetition rules exist. USI and edge-case tests are separate; tournament-specific entering-king rules are not universally certified.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "dobutsu_shogi",
+      "name": "Dobutsu Shogi",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "dobutsu"
+      ],
+      "notes": "Pinned per-game promotion/drop/repetition rules exist. USI and edge-case tests are separate; tournament-specific entering-king rules are not universally certified.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "tori_shogi",
+      "name": "Tori Shogi",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "torishogi"
+      ],
+      "notes": "Pinned per-game promotion/drop/repetition rules exist. USI and edge-case tests are separate; tournament-specific entering-king rules are not universally certified.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "yari_shogi",
+      "name": "Yari Shogi",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "yarishogi"
+      ],
+      "notes": "Pinned per-game promotion/drop/repetition rules exist. USI and edge-case tests are separate; tournament-specific entering-king rules are not universally certified.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "okisaki_shogi",
+      "name": "Okisaki Shogi",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "okisakishogi"
+      ],
+      "notes": "Pinned per-game promotion/drop/repetition rules exist. USI and edge-case tests are separate; tournament-specific entering-king rules are not universally certified.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "other_shogi",
+      "name": "Other FSF Shogi variants",
+      "group": "C",
+      "classification": "Native",
+      "core_ids": [
+        "euroshogi",
+        "judkins",
+        "gorogoro",
+        "micro",
+        "shoshogi",
+        "checkshogi"
+      ],
+      "notes": "Registry contains additional Shogi-derived games; each ID is its own ruleset, not automatic standard-Shogi parity.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "janggi",
+      "name": "Janggi",
+      "group": "D",
+      "classification": "Native",
+      "core_ids": [
+        "janggi"
+      ],
+      "notes": "FSF tournament-style mode includes bikjang and material counting; setup selection, pass, point compensation and specific organizer rules need explicit fixtures.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "janggi_traditional",
+      "name": "Janggi Traditional",
+      "group": "D",
+      "classification": "Native",
+      "core_ids": [
+        "janggitraditional"
+      ],
+      "notes": "FSF mode: bikjang active, material counting disabled. This is a versioned ruleset, not a claim to cover every traditional practice.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "janggi_modern",
+      "name": "Janggi Modern",
+      "group": "D",
+      "classification": "Native",
+      "core_ids": [
+        "janggimodern"
+      ],
+      "notes": "FSF mode: bikjang disabled, material counting and back-and-forth move repetition restrictions enabled; fourfold/100-move settings differ from other Janggi modes.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "janggi_casual",
+      "name": "Janggi Casual",
+      "group": "D",
+      "classification": "Native",
+      "core_ids": [
+        "janggicasual"
+      ],
+      "notes": "FSF mode: bikjang and material counting disabled; preserve remaining core rules.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "xiangqi",
+      "name": "Xiangqi",
+      "group": "E",
+      "classification": "Native",
+      "core_ids": [
+        "xiangqi"
+      ],
+      "notes": "AXF chasing policy is configured in pinned FSF; do not claim every tournament repetition/chase regulation. UCCI, flying general and blocked-piece tests required.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "mini_xiangqi",
+      "name": "Mini Xiangqi",
+      "group": "E",
+      "classification": "Native",
+      "core_ids": [
+        "minixiangqi"
+      ],
+      "notes": "Existing reduced-board rules; identify its exact FSF start position and victory rules.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "manchu",
+      "name": "Manchu Chess",
+      "group": "E",
+      "classification": "Native",
+      "core_ids": [
+        "manchu"
+      ],
+      "notes": "Asymmetric banner piece exists. Inherits xiangqi base without AXF chasing, unlike xiangqi proper.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "supply",
+      "name": "Supply Chess",
+      "group": "E",
+      "classification": "Special Architecture",
+      "core_ids": [
+        "supply"
+      ],
+      "notes": "Existing local-board Xiangqi drop rules use twoBoards. A full partner-board Supply match needs an external coordinator; not a complete native match engine.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "other_xiangqi",
+      "name": "Other verified Xiangqi variants",
+      "group": "E",
+      "classification": "Adapted",
+      "core_ids": [],
+      "notes": "Config examples such as xiangqihouse and crowdedxiangqi can be inventoried, but explicit loading and independent per-variant validation are required.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "makruk",
+      "name": "Makruk",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "makruk"
+      ],
+      "notes": "Pinned core implementation exists. Thai counting and promotion rules are specific to this ruleset.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "makpong",
+      "name": "Makpong",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "makpong"
+      ],
+      "notes": "Pinned core implementation exists. Check-evasion restrictions differ from Makruk.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "asean",
+      "name": "ASEAN Chess",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "asean"
+      ],
+      "notes": "Pinned core implementation exists. ASEAN counting/promotion rules are distinct from Makruk.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "ouk_chatrang",
+      "name": "Ouk Chatrang",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "cambodian"
+      ],
+      "notes": "Pinned core implementation exists. Cambodian initial special moves and counting rules are distinct.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "kar_ouk",
+      "name": "Kar Ouk",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "karouk"
+      ],
+      "notes": "Pinned core implementation exists. First-check victory differs from Ouk Chatrang.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "sittuyin",
+      "name": "Sittuyin",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "sittuyin"
+      ],
+      "notes": "Pinned core implementation exists. Setup drops and promotion rules require separate test positions.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "shatranj",
+      "name": "Shatranj",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "shatranj"
+      ],
+      "notes": "Pinned core implementation exists. Bare-king, stalemate and move-limit rules differ from Chess.com Chaturanga.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "courier",
+      "name": "Courier Chess",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "courier"
+      ],
+      "notes": "Pinned core implementation exists. 12x8 board needs LARGEBOARDS; custom piece movement must be tested.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "shatar",
+      "name": "Shatar",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "shatar"
+      ],
+      "notes": "Pinned core implementation exists. Mating constraints are ruleset-specific.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "jeson_mor",
+      "name": "Jeson Mor",
+      "group": "F",
+      "classification": "Native",
+      "core_ids": [
+        "jesonmor"
+      ],
+      "notes": "Pinned core implementation exists. 9x9 knight game with its own objective.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variant.cpp"
+      ]
+    },
+    {
+      "id": "blindfold",
+      "name": "Blindfold Chess",
+      "group": "Additional official candidates",
+      "classification": "Adapted",
+      "core_ids": [
+        "chess"
+      ],
+      "notes": "Standard rules plus GUI hiding of pieces and move history; not Fog of War or an alternate hidden-state rule engine.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8618510-what-is-blindfold-chess"
+      ]
+    },
+    {
+      "id": "vote_chess",
+      "name": "Vote Chess",
+      "group": "Additional official candidates",
+      "classification": "Special Architecture",
+      "core_ids": [
+        "chess"
+      ],
+      "notes": "Standard chess board with voting/clock/tie-break coordinator. The ordinary chess engine alone does not implement the voting service.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8614177-how-do-i-play-vote-chess"
+      ]
+    },
+    {
+      "id": "chaturaji",
+      "name": "Chaturaji (Chess.com version)",
+      "group": "Additional official candidates",
+      "classification": "Special Architecture",
+      "core_ids": [],
+      "notes": "8x8 but four players, points and king-capture elimination; no dice; promotion to boats. Requires multiplayer architecture despite ordinary board size.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://www.chess.com/terms/chaturaji"
+      ]
+    },
+    {
+      "id": "odds",
+      "name": "Balanced / Odds Chess",
+      "group": "Additional official candidates",
+      "classification": "Adapted",
+      "core_ids": [
+        "chess"
+      ],
+      "notes": "Material/time/start-position presets can use standard chess. Chess.com proprietary automatic balancing algorithm is not copied or claimed.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://www.chess.com/terms/odds-chess"
+      ]
+    },
+    {
+      "id": "four_player_solo",
+      "name": "4PC Solo (winner-takes-all)",
+      "group": "Additional official candidates",
+      "classification": "Special Architecture",
+      "core_ids": [],
+      "notes": "FFA rules with winner-takes-all ranking; unrelated to the single-player Solo Chess capture puzzle.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://support.chess.com/en/articles/8614233-4-player-chess-4pc"
+      ]
+    },
+    {
+      "id": "custom_variants",
+      "name": "Custom Variants",
+      "group": "User-defined",
+      "classification": "Adapted",
+      "core_ids": [],
+      "notes": "FSF INI inheritance and supported Betza subset are reusable. Unsupported syntax, feature combinations, board sizes and multi-player requirements must be rejected, not silently approximated.",
+      "rule_parity": "not_independently_verified",
+      "validation_evidence": [],
+      "release_approved": false,
+      "sources": [
+        "https://github.com/fairy-stockfish/Fairy-Stockfish/blob/9f778da667f6e07dae1e85d3e2ea204fc6dee94d/src/variants.ini",
+        "https://support.chess.com/en/articles/8609332-how-can-i-make-my-own-chess-variant"
+      ]
+    }
+  ]
+}

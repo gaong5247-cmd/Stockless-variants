@@ -1,0 +1,133 @@
+name: Build and validate Stockless Variants
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: variants-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86-64, x86-64-avx2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize pinned sources and build
+        run: make build ARCH=${{ matrix.arch }} JOBS=2
+      - name: Actual C++ rules and policy regressions
+        run: python tools/compile_rule_tests.py --arch ${{ matrix.arch }}
+      - name: Perft, protocol, bounded play and concurrency regressions
+        run: python tests/run_engine_tests.py --engine build/engine/src/stockless-variants --report build/engine-tests.json
+      - name: Strict configuration and input regression
+        run: python tests/protocol_validation_test.py --engine build/engine/src/stockless-variants --report build/protocol-tests.json
+      - name: Validate custom definitions and upstream INI
+        run: |
+          build/engine/src/stockless-variants check config/examples.ini
+          build/engine/src/stockless-variants check upstream/fairy-stockfish/src/variants.ini
+      - name: Extract exact binary capabilities
+        run: python tools/catalog_variants.py --engine build/engine/src/stockless-variants --validation build/engine-tests.json --require-all-builtins
+      - name: Package corresponding source and verified executable
+        run: python tools/package.py --engine build/engine/src/stockless-variants --platform linux --arch ${{ matrix.arch }} --report build/engine-tests.json --report build/protocol-tests.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stockless-variants-linux-${{ matrix.arch }}
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            build/*tests*.json
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86-64, x86-64-avx2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc
+      - name: Materialize pinned sources
+        run: python tools/materialize.py
+      - name: Compile Windows executable
+        shell: msys2 {0}
+        run: make -C build/engine/src -j2 build COMP=mingw ARCH=${{ matrix.arch }} largeboards=yes all=yes nnue=no EXE=stockless-variants.exe
+      - name: Run actual Windows protocol and rule tests
+        run: python tests/run_engine_tests.py --engine build/engine/src/stockless-variants.exe --report build/windows-tests.json
+      - name: Validate configuration and input handling
+        run: python tests/protocol_validation_test.py --engine build/engine/src/stockless-variants.exe --report build/protocol-tests.json
+      - name: Extract exact binary capabilities
+        run: python tools/catalog_variants.py --engine build/engine/src/stockless-variants.exe --validation build/windows-tests.json --require-all-builtins
+      - name: Package corresponding source and verified executable
+        run: python tools/package.py --engine build/engine/src/stockless-variants.exe --platform windows --arch ${{ matrix.arch }} --report build/windows-tests.json --report build/protocol-tests.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stockless-variants-windows-${{ matrix.arch }}
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            build/*tests*.json
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned NDK
+        shell: bash
+        run: |
+          stockless_sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          stockless_manager="$stockless_sdk/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$stockless_manager"
+          "$stockless_manager" "ndk;27.2.12479018"
+          echo "STOCKLESS_NDK=$stockless_sdk/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - name: Materialize and cross-compile ARM64 API 26
+        shell: bash
+        run: |
+          python tools/materialize.py
+          export PATH="$STOCKLESS_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          make -C build/engine/src -j2 build COMP=ndk ARCH=armv8 CXX=aarch64-linux-android26-clang++ largeboards=yes all=yes nnue=no EXE=stockless-variants
+          llvm-readelf -h build/engine/src/stockless-variants > build/android-elf.txt
+          python -c "from pathlib import Path; assert 'AArch64' in Path('build/android-elf.txt').read_text()"
+      - name: Extract source capabilities (cross-compiled binary is not run on x64)
+        run: python tools/catalog_variants.py
+      - name: Package build-only Android executable and corresponding source
+        run: python tools/package.py --engine build/engine/src/stockless-variants --platform android-arm64 --arch armv8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stockless-variants-android-arm64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            build/android-elf.txt
+          if-no-files-found: error

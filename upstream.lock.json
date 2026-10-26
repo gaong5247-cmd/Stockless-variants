@@ -1,0 +1,14 @@
+{
+  "fairy-stockfish": {
+    "repository": "https://github.com/fairy-stockfish/Fairy-Stockfish.git",
+    "revision": "9f778da667f6e07dae1e85d3e2ea204fc6dee94d",
+    "path": "upstream/fairy-stockfish",
+    "role": "Variant rules, classical evaluation, protocols, search and runtime"
+  },
+  "stockless": {
+    "repository": "https://github.com/gaong5247-cmd/Stockless.git",
+    "revision": "3bb0745daf161234143b04a3364d55b8b36fd26c",
+    "path": "upstream/stockless",
+    "role": "Unmodified v0.9.0 hybrid search-policy and configuration headers"
+  }
+}

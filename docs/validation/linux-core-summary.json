@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "date_utc": "2026-10-26",
+  "source_commit": "f985a5b187defbbac52c581a8518d96d3df69f46",
+  "working_tree_dirty_at_materialization": false,
+  "upstream": {
+    "fairy-stockfish": {
+      "repository": "https://github.com/fairy-stockfish/Fairy-Stockfish.git",
+      "revision": "9f778da667f6e07dae1e85d3e2ea204fc6dee94d",
+      "path": "upstream/fairy-stockfish",
+      "role": "Variant rules, classical evaluation, protocols, search and runtime"
+    },
+    "stockless": {
+      "repository": "https://github.com/gaong5247-cmd/Stockless.git",
+      "revision": "3bb0745daf161234143b04a3364d55b8b36fd26c",
+      "path": "upstream/stockless",
+      "role": "Unmodified v0.9.0 hybrid search-policy and configuration headers"
+    }
+  },
+  "host": {
+    "os": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "cpu": "AMD EPYC 9V74 (virtualized, 9 visible CPUs)",
+    "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0",
+    "python": "3.12.14"
+  },
+  "release_build": {
+    "arch": "x86-64",
+    "largeboards": true,
+    "all_variants": true,
+    "nnue": false,
+    "sha256": "7dbb3e00afbfc04ef80875852d23ca14b75341845b8cad31666de49c24bb3bef"
+  },
+  "rules": {
+    "cases": 149,
+    "checks": 43037,
+    "transitions": 4692,
+    "failures": 0
+  },
+  "policy": {
+    "checks": 2581152,
+    "failures": 0
+  },
+  "stockless_original_policy": {
+    "prepared_move_cases": 200000,
+    "single_call_cases": 100000,
+    "mutable_depth_cases": 4,
+    "mobile_overdrive_cases": 100201,
+    "passed": true
+  },
+  "sanitizers": {
+    "address": true,
+    "undefined_behavior": true,
+    "leak_detection": false,
+    "leak_detection_reason": "Sandbox prevented LeakSanitizer from reading /proc task information; this is not a leak-test result.",
+    "build_flags": "debug=yes optimize=no sanitize=undefined,address",
+    "environment": {
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    },
+    "rules": {
+      "cases": 149,
+      "checks": 43037,
+      "transitions": 4692,
+      "failures": 0
+    },
+    "policy": {
+      "checks": 2581152,
+      "failures": 0
+    },
+    "stockless_original_policy_passed": true,
+    "depth3_searches": [
+      {
+        "variant": "bughouse",
+        "bestmove": "e2e4",
+        "passed": true
+      },
+      {
+        "variant": "supply",
+        "bestmove": "h1g3",
+        "passed": true
+      },
+      {
+        "variant": "ataxx",
+        "bestmove": "P@f2",
+        "passed": true
+      },
+      {
+        "variant": "seirawan",
+        "bestmove": "e2e4",
+        "passed": true
+      },
+      {
+        "variant": "shouse",
+        "bestmove": "H@e5",
+        "passed": true
+      },
+      {
+        "variant": "atomic",
+        "bestmove": "d2d4",
+        "passed": true
+      },
+      {
+        "variant": "crazyhouse",
+        "bestmove": "e2e3",
+        "passed": true
+      },
+      {
+        "variant": "shogi",
+        "bestmove": "c3c4",
+        "passed": true
+      },
+      {
+        "variant": "janggi",
+        "bestmove": "b1c3",
+        "passed": true
+      },
+      {
+        "variant": "xiangqi",
+        "bestmove": "b1c3",
+        "passed": true
+      },
+      {
+        "variant": "duck",
+        "bestmove": "d2d4,d4c3",
+        "passed": true
+      }
+    ],
+    "engine_sha256": "5eae3e95c215ab73ad8a165bd7ef59d9f76532b3c58d50111e668aac11698836"
+  },
+  "default_bench": {
+    "positions": 47,
+    "nodes": 7003664,
+    "time_ms": 12307,
+    "purpose": "default benchmark completion smoke; not an Elo or comparative speed claim"
+  },
+  "limitations": [
+    "Original FSF is a regression oracle, not independent proof of every game convention.",
+    "Bounded playouts do not establish long-time-control strength or race freedom.",
+    "Android device/GUI runtime validation is pending.",
+    "No game is release-approved."
+  ]
+}

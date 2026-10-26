@@ -1,0 +1,4624 @@
+{
+  "schema": 1,
+  "engine": "build/engine/src/stockless-variants",
+  "engine_sha256": "7dbb3e00afbfc04ef80875852d23ca14b75341845b8cad31666de49c24bb3bef",
+  "reference_sha256": "d3f863c430d739d159d0dc74e818d7df914900b518594d035eb7a4cbef653753",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "python": "3.12.14",
+  "threads_default": 1,
+  "evaluation": "classical (Use NNUE=false)",
+  "quick": false,
+  "full_perft": true,
+  "oracle": "pinned Fairy-Stockfish tests/perft.sh and optional pinned executable",
+  "limitations": [
+    "bounded regression coverage; no Elo estimate",
+    "no long-match or race-detector certification",
+    "matching FSF is not independent validation of every regional/Chess.com rule"
+  ],
+  "tests": [
+    {
+      "name": "protocol/uci",
+      "passed": true,
+      "evidence": {
+        "default_variant": "chess",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.246
+    },
+    {
+      "name": "protocol/usi",
+      "passed": true,
+      "evidence": {
+        "default_variant": "shogi",
+        "legal_moves": 30,
+        "bestmove": "7g7f"
+      },
+      "elapsed_seconds": 0.229
+    },
+    {
+      "name": "protocol/ucci",
+      "passed": true,
+      "evidence": {
+        "default_variant": "xiangqi",
+        "legal_moves": 44,
+        "bestmove": "b0c2"
+      },
+      "elapsed_seconds": 0.241
+    },
+    {
+      "name": "protocol/xboard",
+      "passed": true,
+      "evidence": {
+        "ping_pong": true,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.501
+    },
+    {
+      "name": "perft/chess/depth-5/4",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "position": "startpos",
+        "depth": 5,
+        "expected": 4865609,
+        "chess960": false,
+        "actual": 4865609
+      },
+      "elapsed_seconds": 0.235
+    },
+    {
+      "name": "perft/chess/depth-5/5",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "position": "fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
+        "depth": 5,
+        "expected": 193690690,
+        "chess960": false,
+        "actual": 193690690
+      },
+      "elapsed_seconds": 8.975
+    },
+    {
+      "name": "perft/chess/depth-6/6",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "position": "fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
+        "depth": 6,
+        "expected": 11030083,
+        "chess960": false,
+        "actual": 11030083
+      },
+      "elapsed_seconds": 0.853
+    },
+    {
+      "name": "perft/chess/depth-5/7",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "position": "fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "depth": 5,
+        "expected": 15833292,
+        "chess960": false,
+        "actual": 15833292
+      },
+      "elapsed_seconds": 0.849
+    },
+    {
+      "name": "perft/chess/depth-5/8",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "position": "fen rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        "depth": 5,
+        "expected": 89941194,
+        "chess960": false,
+        "actual": 89941194
+      },
+      "elapsed_seconds": 3.648
+    },
+    {
+      "name": "perft/chess/depth-5/9",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "position": "fen r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+        "depth": 5,
+        "expected": 164075551,
+        "chess960": false,
+        "actual": 164075551
+      },
+      "elapsed_seconds": 6.416
+    },
+    {
+      "name": "perft/losalamos/depth-5/10",
+      "passed": true,
+      "evidence": {
+        "variant": "losalamos",
+        "position": "startpos",
+        "depth": 5,
+        "expected": 191846,
+        "chess960": false,
+        "actual": 191846
+      },
+      "elapsed_seconds": 0.02
+    },
+    {
+      "name": "perft/losalamos/depth-6/11",
+      "passed": true,
+      "evidence": {
+        "variant": "losalamos",
+        "position": "fen 6/2P3/6/1K1k2/6/6 w - - 0 1",
+        "depth": 6,
+        "expected": 187431,
+        "chess960": false,
+        "actual": 187431
+      },
+      "elapsed_seconds": 0.025
+    },
+    {
+      "name": "perft/torpedo/depth-4/12",
+      "passed": true,
+      "evidence": {
+        "variant": "torpedo",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 209719,
+        "chess960": false,
+        "actual": 209719
+      },
+      "elapsed_seconds": 0.019
+    },
+    {
+      "name": "perft/torpedo/depth-4/13",
+      "passed": true,
+      "evidence": {
+        "variant": "torpedo",
+        "position": "fen rnbqkbnr/1ppppppp/8/6P1/p7/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1",
+        "depth": 4,
+        "expected": 232819,
+        "chess960": false,
+        "actual": 232819
+      },
+      "elapsed_seconds": 0.02
+    },
+    {
+      "name": "perft/berolina/depth-3/14",
+      "passed": true,
+      "evidence": {
+        "variant": "berolina",
+        "position": "fen rnbqkbnr/pppp1ppp/8/2p5/5P2/8/PPP1PPPP/RNBQKBNR w KQkq c5d6 2 2",
+        "depth": 3,
+        "expected": 46643,
+        "chess960": false,
+        "actual": 46643
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "perft/berolina/depth-3/15",
+      "passed": true,
+      "evidence": {
+        "variant": "berolina",
+        "position": "fen k7/6P1/8/8/8/2K2p2/4p3/8 w - - 0 1",
+        "depth": 3,
+        "expected": 1983,
+        "chess960": false,
+        "actual": 1983
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/berolina/depth-2/16",
+      "passed": true,
+      "evidence": {
+        "variant": "berolina",
+        "position": "fen rnbqkbnr/pp1p1ppp/8/2pPp3/8/8/PP1PPPPP/RNBQKBNR w KQkq d6c5 0 1",
+        "depth": 2,
+        "expected": 1047,
+        "chess960": false,
+        "actual": 1047
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/pawnsideways/depth-3/17",
+      "passed": true,
+      "evidence": {
+        "variant": "pawnsideways",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 10022,
+        "chess960": false,
+        "actual": 10022
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/pawnback/depth-3/18",
+      "passed": true,
+      "evidence": {
+        "variant": "pawnback",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 9222,
+        "chess960": false,
+        "actual": 9222
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/legan/depth-4/19",
+      "passed": true,
+      "evidence": {
+        "variant": "legan",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 8138,
+        "chess960": false,
+        "actual": 8138
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/makruk/depth-4/20",
+      "passed": true,
+      "evidence": {
+        "variant": "makruk",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 273026,
+        "chess960": false,
+        "actual": 273026
+      },
+      "elapsed_seconds": 0.031
+    },
+    {
+      "name": "perft/cambodian/depth-4/21",
+      "passed": true,
+      "evidence": {
+        "variant": "cambodian",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 361719,
+        "chess960": false,
+        "actual": 361719
+      },
+      "elapsed_seconds": 0.038
+    },
+    {
+      "name": "perft/cambodian/depth-2/22",
+      "passed": true,
+      "evidence": {
+        "variant": "cambodian",
+        "position": "fen r1s1ks1r/3nm3/pppNpppp/3n4/5P2/PPPPPNPP/8/R1SKMS1R b DEe 0 0 5",
+        "depth": 2,
+        "expected": 72,
+        "chess960": false,
+        "actual": 72
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/karouk/depth-4/23",
+      "passed": true,
+      "evidence": {
+        "variant": "karouk",
+        "position": "fen rn1mksnr/3s4/pppppppp/8/4N3/PPPPPPPP/8/R1SKMSNR b DEde - 3 2",
+        "depth": 4,
+        "expected": 358460,
+        "chess960": false,
+        "actual": 358460
+      },
+      "elapsed_seconds": 0.036
+    },
+    {
+      "name": "perft/makpong/depth-4/24",
+      "passed": true,
+      "evidence": {
+        "variant": "makpong",
+        "position": "fen 3mk3/r3s1R1/1psppnp1/p1pn4/1P2NP2/P1PPP1P1/4NS2/R1SKM3 w - - 0 1",
+        "depth": 4,
+        "expected": 593103,
+        "chess960": false,
+        "actual": 593103
+      },
+      "elapsed_seconds": 0.062
+    },
+    {
+      "name": "perft/asean/depth-4/25",
+      "passed": true,
+      "evidence": {
+        "variant": "asean",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 273026,
+        "chess960": false,
+        "actual": 273026
+      },
+      "elapsed_seconds": 0.03
+    },
+    {
+      "name": "perft/ai-wok/depth-4/26",
+      "passed": true,
+      "evidence": {
+        "variant": "ai-wok",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 485045,
+        "chess960": false,
+        "actual": 485045
+      },
+      "elapsed_seconds": 0.052
+    },
+    {
+      "name": "perft/ai-wok/depth-5/27",
+      "passed": true,
+      "evidence": {
+        "variant": "ai-wok",
+        "position": "fen 8/8/8/2sp2k1/7p/3P4/6K1/7r w - - 0 1",
+        "depth": 5,
+        "expected": 30055,
+        "chess960": false,
+        "actual": 30055
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "perft/sittuyin/depth-3/28",
+      "passed": true,
+      "evidence": {
+        "variant": "sittuyin",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 580096,
+        "chess960": false,
+        "actual": 580096
+      },
+      "elapsed_seconds": 0.054
+    },
+    {
+      "name": "perft/sittuyin/depth-4/29",
+      "passed": true,
+      "evidence": {
+        "variant": "sittuyin",
+        "position": "fen 8/8/6R1/s3r3/P5R1/1KP3p1/1F2kr2/8[] b - - 0 72",
+        "depth": 4,
+        "expected": 652686,
+        "chess960": false,
+        "actual": 652686
+      },
+      "elapsed_seconds": 0.062
+    },
+    {
+      "name": "perft/sittuyin/depth-4/30",
+      "passed": true,
+      "evidence": {
+        "variant": "sittuyin",
+        "position": "fen 2r5/6k1/6p1/3s2P1/3npR2/8/p2N2F1/3K4[] w - - 1 50",
+        "depth": 4,
+        "expected": 373984,
+        "chess960": false,
+        "actual": 373984
+      },
+      "elapsed_seconds": 0.038
+    },
+    {
+      "name": "perft/sittuyin/depth-4/31",
+      "passed": true,
+      "evidence": {
+        "variant": "sittuyin",
+        "position": "fen 8/6s1/5P2/3n4/pR2K2S/1P6/1k4p1/8[] w - - 1 50",
+        "depth": 4,
+        "expected": 268869,
+        "chess960": false,
+        "actual": 268869
+      },
+      "elapsed_seconds": 0.03
+    },
+    {
+      "name": "perft/sittuyin/depth-5/32",
+      "passed": true,
+      "evidence": {
+        "variant": "sittuyin",
+        "position": "fen 1k5K/3r2P1/8/8/8/8/8/8[] w - - 0 1",
+        "depth": 5,
+        "expected": 68662,
+        "chess960": false,
+        "actual": 68662
+      },
+      "elapsed_seconds": 0.016
+    },
+    {
+      "name": "perft/almost/depth-3/33",
+      "passed": true,
+      "evidence": {
+        "variant": "almost",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 11895,
+        "chess960": false,
+        "actual": 11895
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/almost/depth-2/34",
+      "passed": true,
+      "evidence": {
+        "variant": "almost",
+        "position": "fen 8/1k5P/8/8/8/3K4/p7/8 b - - 0 1",
+        "depth": 2,
+        "expected": 140,
+        "chess960": false,
+        "actual": 140
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/sortofalmost/depth-3/35",
+      "passed": true,
+      "evidence": {
+        "variant": "sortofalmost",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 10815,
+        "chess960": false,
+        "actual": 10815
+      },
+      "elapsed_seconds": 0.009
+    },
+    {
+      "name": "perft/sortofalmost/depth-2/36",
+      "passed": true,
+      "evidence": {
+        "variant": "sortofalmost",
+        "position": "fen 8/1k5P/8/8/8/3K4/p7/8 b - - 0 1",
+        "depth": 2,
+        "expected": 139,
+        "chess960": false,
+        "actual": 139
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "perft/chigorin/depth-3/37",
+      "passed": true,
+      "evidence": {
+        "variant": "chigorin",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 11408,
+        "chess960": false,
+        "actual": 11408
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/chigorin/depth-2/38",
+      "passed": true,
+      "evidence": {
+        "variant": "chigorin",
+        "position": "fen 8/1k5P/8/8/8/3K4/p7/8 b - - 0 1",
+        "depth": 2,
+        "expected": 117,
+        "chess960": false,
+        "actual": 117
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "perft/perfect/depth-3/39",
+      "passed": true,
+      "evidence": {
+        "variant": "perfect",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 15082,
+        "chess960": false,
+        "actual": 15082
+      },
+      "elapsed_seconds": 0.011
+    },
+    {
+      "name": "perft/perfect/depth-3/40",
+      "passed": true,
+      "evidence": {
+        "variant": "perfect",
+        "position": "fen c3k2r/pppppppp/8/8/8/8/PPPPPPPP/C3K2R w KQkq - 0 1",
+        "depth": 3,
+        "expected": 17500,
+        "chess960": false,
+        "actual": 17500
+      },
+      "elapsed_seconds": 0.01
+    },
+    {
+      "name": "perft/spartan/depth-3/41",
+      "passed": true,
+      "evidence": {
+        "variant": "spartan",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 14244,
+        "chess960": false,
+        "actual": 14244
+      },
+      "elapsed_seconds": 0.011
+    },
+    {
+      "name": "perft/spartan/depth-3/42",
+      "passed": true,
+      "evidence": {
+        "variant": "spartan",
+        "position": "fen k6k/hh2Q2h/8/8/8/8/8/4K3 w - - 0 1",
+        "depth": 3,
+        "expected": 6130,
+        "chess960": false,
+        "actual": 6130
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/spartan/depth-3/43",
+      "passed": true,
+      "evidence": {
+        "variant": "spartan",
+        "position": "fen 8/8/8/8/6Q1/8/2h3h1/4K1k1 b - - 0 1",
+        "depth": 3,
+        "expected": 3456,
+        "chess960": false,
+        "actual": 3456
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/shatar/depth-4/44",
+      "passed": true,
+      "evidence": {
+        "variant": "shatar",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 177344,
+        "chess960": false,
+        "actual": 177344
+      },
+      "elapsed_seconds": 0.023
+    },
+    {
+      "name": "perft/shatranj/depth-4/45",
+      "passed": true,
+      "evidence": {
+        "variant": "shatranj",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 68122,
+        "chess960": false,
+        "actual": 68122
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "perft/amazon/depth-4/46",
+      "passed": true,
+      "evidence": {
+        "variant": "amazon",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 318185,
+        "chess960": false,
+        "actual": 318185
+      },
+      "elapsed_seconds": 0.036
+    },
+    {
+      "name": "perft/nightrider/depth-4/47",
+      "passed": true,
+      "evidence": {
+        "variant": "nightrider",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 419019,
+        "chess960": false,
+        "actual": 419019
+      },
+      "elapsed_seconds": 0.051
+    },
+    {
+      "name": "perft/grasshopper/depth-4/48",
+      "passed": true,
+      "evidence": {
+        "variant": "grasshopper",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 635298,
+        "chess960": false,
+        "actual": 635298
+      },
+      "elapsed_seconds": 0.095
+    },
+    {
+      "name": "perft/hoppelpoppel/depth-4/49",
+      "passed": true,
+      "evidence": {
+        "variant": "hoppelpoppel",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 202459,
+        "chess960": false,
+        "actual": 202459
+      },
+      "elapsed_seconds": 0.029
+    },
+    {
+      "name": "perft/newzealand/depth-4/50",
+      "passed": true,
+      "evidence": {
+        "variant": "newzealand",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 200310,
+        "chess960": false,
+        "actual": 200310
+      },
+      "elapsed_seconds": 0.027
+    },
+    {
+      "name": "perft/racingkings/depth-4/51",
+      "passed": true,
+      "evidence": {
+        "variant": "racingkings",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 296242,
+        "chess960": false,
+        "actual": 296242
+      },
+      "elapsed_seconds": 0.026
+    },
+    {
+      "name": "perft/racingkings/depth-4/52",
+      "passed": true,
+      "evidence": {
+        "variant": "racingkings",
+        "position": "fen 6r1/2K5/5k2/8/3R4/8/8/8 w - - 0 1",
+        "depth": 4,
+        "expected": 86041,
+        "chess960": false,
+        "actual": 86041
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/racingkings/depth-4/53",
+      "passed": true,
+      "evidence": {
+        "variant": "racingkings",
+        "position": "fen 6R1/2k5/5K2/8/3r4/8/8/8 b - - 0 1",
+        "depth": 4,
+        "expected": 86009,
+        "chess960": false,
+        "actual": 86009
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "perft/racingkings/depth-6/54",
+      "passed": true,
+      "evidence": {
+        "variant": "racingkings",
+        "position": "fen 4brn1/2K2k2/8/8/8/8/8/8 w - - 0 1",
+        "depth": 6,
+        "expected": 265932,
+        "chess960": false,
+        "actual": 265932
+      },
+      "elapsed_seconds": 0.031
+    },
+    {
+      "name": "perft/kingofthehill/depth-3/55",
+      "passed": true,
+      "evidence": {
+        "variant": "kingofthehill",
+        "position": "fen rnb2b1r/ppp2ppp/3k4/8/1PKp1pn1/3Pq3/PBP1P2P/RN1Q1B1R w - - 4 12",
+        "depth": 3,
+        "expected": 19003,
+        "chess960": false,
+        "actual": 19003
+      },
+      "elapsed_seconds": 0.009
+    },
+    {
+      "name": "perft/3check/depth-3/56",
+      "passed": true,
+      "evidence": {
+        "variant": "3check",
+        "position": "fen 7r/1p4p1/pk3p2/RN6/8/P5Pp/3p1P1P/4R1K1 w - - 1+3 1 39",
+        "depth": 3,
+        "expected": 12407,
+        "chess960": false,
+        "actual": 12407
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/3check/depth-3/57",
+      "passed": true,
+      "evidence": {
+        "variant": "3check",
+        "position": "fen 7r/1p4p1/pk3p2/RN6/8/P5Pp/3p1P1P/4R1K1 w - - 1 39 +2+0",
+        "depth": 3,
+        "expected": 12407,
+        "chess960": false,
+        "actual": 12407
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/atomic/depth-4/58",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 197326,
+        "chess960": false,
+        "actual": 197326
+      },
+      "elapsed_seconds": 0.02
+    },
+    {
+      "name": "perft/atomic/depth-4/59",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "fen rn2kb1r/1pp1p2p/p2q1pp1/3P4/2P3b1/4PN2/PP3PPP/R2QKB1R b KQkq - 0 1",
+        "depth": 4,
+        "expected": 1434825,
+        "chess960": false,
+        "actual": 1434825
+      },
+      "elapsed_seconds": 0.082
+    },
+    {
+      "name": "perft/atomic/depth-4/60",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "fen rn1qkb1r/p5pp/2p5/3p4/N3P3/5P2/PPP4P/R1BQK3 w Qkq - 0 1",
+        "depth": 4,
+        "expected": 714499,
+        "chess960": false,
+        "actual": 714499
+      },
+      "elapsed_seconds": 0.043
+    },
+    {
+      "name": "perft/atomic/depth-2/61",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "fen r4b1r/2kb1N2/p2Bpnp1/8/2Pp3p/1P1PPP2/P5PP/R3K2R b KQ - 0 1",
+        "depth": 2,
+        "expected": 148,
+        "chess960": false,
+        "actual": 148
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/atomar/depth-4/62",
+      "passed": true,
+      "evidence": {
+        "variant": "atomar",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 197779,
+        "chess960": false,
+        "actual": 197779
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "perft/atomar/depth-3/63",
+      "passed": true,
+      "evidence": {
+        "variant": "atomar",
+        "position": "fen 7r/6Pb/1np5/1p2kp2/P1P1n3/1P2KP1B/5N2/8 w - - 0 1",
+        "depth": 3,
+        "expected": 24644,
+        "chess960": false,
+        "actual": 24644
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/nocheckatomic/depth-4/64",
+      "passed": true,
+      "evidence": {
+        "variant": "nocheckatomic",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 197779,
+        "chess960": false,
+        "actual": 197779
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/nocheckatomic/depth-3/65",
+      "passed": true,
+      "evidence": {
+        "variant": "nocheckatomic",
+        "position": "fen 7r/6Pb/1np5/1p2kp2/P1P1n3/1P2KP1B/5N2/8 w - - 0 1",
+        "depth": 3,
+        "expected": 21347,
+        "chess960": false,
+        "actual": 21347
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/antichess/depth-4/66",
+      "passed": true,
+      "evidence": {
+        "variant": "antichess",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 153299,
+        "chess960": false,
+        "actual": 153299
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "perft/giveaway/depth-4/67",
+      "passed": true,
+      "evidence": {
+        "variant": "giveaway",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 153299,
+        "chess960": false,
+        "actual": 153299
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "perft/giveaway/depth-4/68",
+      "passed": true,
+      "evidence": {
+        "variant": "giveaway",
+        "position": "fen 8/1p6/8/8/8/8/P7/8 w - - 0 1",
+        "depth": 4,
+        "expected": 3,
+        "chess960": false,
+        "actual": 3
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "perft/giveaway/depth-12/69",
+      "passed": true,
+      "evidence": {
+        "variant": "giveaway",
+        "position": "fen 8/2p5/8/8/8/8/P7/8 w - - 0 1",
+        "depth": 12,
+        "expected": 2557,
+        "chess960": false,
+        "actual": 2557
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/codrus/depth-4/70",
+      "passed": true,
+      "evidence": {
+        "variant": "codrus",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 153299,
+        "chess960": false,
+        "actual": 153299
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "perft/codrus/depth-4/71",
+      "passed": true,
+      "evidence": {
+        "variant": "codrus",
+        "position": "fen 5bnr/2pp2pp/P4k2/R3Q1P1/8/2N1K3/1P1PP1PP/2B2BNR w - - 1 15",
+        "depth": 4,
+        "expected": 19,
+        "chess960": false,
+        "actual": 19
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/horde/depth-4/72",
+      "passed": true,
+      "evidence": {
+        "variant": "horde",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 23310,
+        "chess960": false,
+        "actual": 23310
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/horde/depth-4/73",
+      "passed": true,
+      "evidence": {
+        "variant": "horde",
+        "position": "fen 4k3/pp4q1/3P2p1/8/P3PP2/PPP2r2/PPP5/PPPP4 b - - 0 1",
+        "depth": 4,
+        "expected": 56539,
+        "chess960": false,
+        "actual": 56539
+      },
+      "elapsed_seconds": 0.01
+    },
+    {
+      "name": "perft/horde/depth-4/74",
+      "passed": true,
+      "evidence": {
+        "variant": "horde",
+        "position": "fen k7/5p2/4p2P/3p2P1/2p2P2/1p2P2P/p2P2P1/2P2P2 w - - 0 1",
+        "depth": 4,
+        "expected": 33781,
+        "chess960": false,
+        "actual": 33781
+      },
+      "elapsed_seconds": 0.011
+    },
+    {
+      "name": "perft/horde/depth-4/75",
+      "passed": true,
+      "evidence": {
+        "variant": "horde",
+        "position": "fen 4k3/7r/8/P7/2p1n2P/3p2P1/1P3P2/PPP1PPP1 w - - 0 1",
+        "depth": 4,
+        "expected": 128809,
+        "chess960": false,
+        "actual": 128809
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "perft/horde/depth-4/76",
+      "passed": true,
+      "evidence": {
+        "variant": "horde",
+        "position": "fen rnbqkbnr/6p1/2p1Pp1P/P1PPPP2/Pp4PP/1p2PPPP/1P2PPPP/PP1nPPPP b kq a3 0 18",
+        "depth": 4,
+        "expected": 197287,
+        "chess960": false,
+        "actual": 197287
+      },
+      "elapsed_seconds": 0.017
+    },
+    {
+      "name": "perft/coregal/depth-4/77",
+      "passed": true,
+      "evidence": {
+        "variant": "coregal",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 195896,
+        "chess960": false,
+        "actual": 195896
+      },
+      "elapsed_seconds": 0.024
+    },
+    {
+      "name": "perft/coregal/depth-3/78",
+      "passed": true,
+      "evidence": {
+        "variant": "coregal",
+        "position": "fen rn2kb1r/ppp1pppp/6q1/8/2PP2b1/5B2/PP3P1P/R1BQK1NR w KQkq - 1 9",
+        "depth": 3,
+        "expected": 20421,
+        "chess960": false,
+        "actual": 20421
+      },
+      "elapsed_seconds": 0.009
+    },
+    {
+      "name": "perft/coregal/depth-4/79",
+      "passed": true,
+      "evidence": {
+        "variant": "coregal",
+        "position": "fen 2Q5/3Pq2k/6p1/4Bp1p/5P1P/8/8/K7 w - - 2 72",
+        "depth": 4,
+        "expected": 55970,
+        "chess960": false,
+        "actual": 55970
+      },
+      "elapsed_seconds": 0.016
+    },
+    {
+      "name": "perft/coregal/depth-4/80",
+      "passed": true,
+      "evidence": {
+        "variant": "coregal",
+        "position": "fen r3kb1r/1pp1pppp/p1q2n2/3P4/6b1/2N2N2/PPP2PPP/R1BQ1RK1 b kq - 0 9",
+        "depth": 4,
+        "expected": 136511,
+        "chess960": false,
+        "actual": 136511
+      },
+      "elapsed_seconds": 0.019
+    },
+    {
+      "name": "perft/knightmate/depth-4/81",
+      "passed": true,
+      "evidence": {
+        "variant": "knightmate",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 139774,
+        "chess960": false,
+        "actual": 139774
+      },
+      "elapsed_seconds": 0.023
+    },
+    {
+      "name": "perft/losers/depth-4/82",
+      "passed": true,
+      "evidence": {
+        "variant": "losers",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 152955,
+        "chess960": false,
+        "actual": 152955
+      },
+      "elapsed_seconds": 0.022
+    },
+    {
+      "name": "perft/kinglet/depth-4/83",
+      "passed": true,
+      "evidence": {
+        "variant": "kinglet",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 197742,
+        "chess960": false,
+        "actual": 197742
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "perft/threekings/depth-4/84",
+      "passed": true,
+      "evidence": {
+        "variant": "threekings",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 199514,
+        "chess960": false,
+        "actual": 199514
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/dobutsu/depth-6/85",
+      "passed": true,
+      "evidence": {
+        "variant": "dobutsu",
+        "position": "startpos",
+        "depth": 6,
+        "expected": 71677,
+        "chess960": false,
+        "actual": 71677
+      },
+      "elapsed_seconds": 0.01
+    },
+    {
+      "name": "perft/dobutsu/depth-4/86",
+      "passed": true,
+      "evidence": {
+        "variant": "dobutsu",
+        "position": "fen g1e/1cL/lC1/E1G[] w - - 4 3",
+        "depth": 4,
+        "expected": 2290,
+        "chess960": false,
+        "actual": 2290
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/crazyhouse/depth-4/87",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 197281,
+        "chess960": false,
+        "actual": 197281
+      },
+      "elapsed_seconds": 0.017
+    },
+    {
+      "name": "perft/crazyhouse/depth-2/88",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "position": "fen 2k5/8/8/8/8/8/8/4K3[QRBNPqrbnp] w - - 0 1",
+        "depth": 2,
+        "expected": 75353,
+        "chess960": false,
+        "actual": 75353
+      },
+      "elapsed_seconds": 0.011
+    },
+    {
+      "name": "perft/crazyhouse/depth-3/89",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "position": "fen 2k5/8/8/8/8/8/8/4K3[Qn] w - - 0 1",
+        "depth": 3,
+        "expected": 88634,
+        "chess960": false,
+        "actual": 88634
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/crazyhouse/depth-3/90",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "position": "fen 2k5/8/8/8/8/8/8/4K3/Qn w - - 0 1",
+        "depth": 3,
+        "expected": 88634,
+        "chess960": false,
+        "actual": 88634
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "perft/crazyhouse/depth-3/91",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "position": "fen r1bqk2r/pppp1ppp/2n1p3/4P3/1b1Pn3/2NB1N2/PPP2PPP/R1BQK2R[] b KQkq - 0 1",
+        "depth": 3,
+        "expected": 58057,
+        "chess960": false,
+        "actual": 58057
+      },
+      "elapsed_seconds": 0.009
+    },
+    {
+      "name": "perft/loop/depth-4/92",
+      "passed": true,
+      "evidence": {
+        "variant": "loop",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 197281,
+        "chess960": false,
+        "actual": 197281
+      },
+      "elapsed_seconds": 0.016
+    },
+    {
+      "name": "perft/loop/depth-2/93",
+      "passed": true,
+      "evidence": {
+        "variant": "loop",
+        "position": "fen 5R2/2p1Nb2/2B4k/6p1/8/P3PP2/1PPqR3/3R1BKn[QBNPPPPrrrnppp] b - - 1 1",
+        "depth": 2,
+        "expected": 31983,
+        "chess960": false,
+        "actual": 31983
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/chessgi/depth-4/94",
+      "passed": true,
+      "evidence": {
+        "variant": "chessgi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 197281,
+        "chess960": false,
+        "actual": 197281
+      },
+      "elapsed_seconds": 0.017
+    },
+    {
+      "name": "perft/chessgi/depth-2/95",
+      "passed": true,
+      "evidence": {
+        "variant": "chessgi",
+        "position": "fen 5Rp1/2p1Nb2/2B4k/6p1/8/P3PP2/1PPqR3/3R1BKn[QBNPPPPrrrnpp] b - - 1 48",
+        "depth": 2,
+        "expected": 32816,
+        "chess960": false,
+        "actual": 32816
+      },
+      "elapsed_seconds": 0.01
+    },
+    {
+      "name": "perft/pocketknight/depth-3/96",
+      "passed": true,
+      "evidence": {
+        "variant": "pocketknight",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 88617,
+        "chess960": false,
+        "actual": 88617
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/placement/depth-3/97",
+      "passed": true,
+      "evidence": {
+        "variant": "placement",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 50560,
+        "chess960": false,
+        "actual": 50560
+      },
+      "elapsed_seconds": 0.02
+    },
+    {
+      "name": "perft/placement/depth-6/98",
+      "passed": true,
+      "evidence": {
+        "variant": "placement",
+        "position": "fen rnbq1bnr/pppppppp/8/8/8/8/PPPPPPPP/QR1BKNN1[BRk] w - - 0 1",
+        "depth": 6,
+        "expected": 17804,
+        "chess960": false,
+        "actual": 17804
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "perft/placement/depth-5/99",
+      "passed": true,
+      "evidence": {
+        "variant": "placement",
+        "position": "fen 1n1r1q2/pppppppp/8/8/8/8/PPPPPPPP/1N1B1R1N[KQRBkrbbn] b - - 0 4",
+        "depth": 5,
+        "expected": 145152,
+        "chess960": false,
+        "actual": 145152
+      },
+      "elapsed_seconds": 0.204
+    },
+    {
+      "name": "perft/placement/depth-4/100",
+      "passed": true,
+      "evidence": {
+        "variant": "placement",
+        "position": "fen r3k3/pppppppp/8/8/8/8/PPPPPPPP/R6R[Kr] w q - 0 1",
+        "depth": 4,
+        "expected": 18492,
+        "chess960": false,
+        "actual": 18492
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/seirawan/depth-4/101",
+      "passed": true,
+      "evidence": {
+        "variant": "seirawan",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 782599,
+        "chess960": false,
+        "actual": 782599
+      },
+      "elapsed_seconds": 0.046
+    },
+    {
+      "name": "perft/seirawan/depth-4/102",
+      "passed": true,
+      "evidence": {
+        "variant": "seirawan",
+        "position": "fen reb1k2r/ppppqppp/2nb1n2/4p3/4P3/N1P2N2/PB1PQPPP/RE2KBHR[h] b KQkqc - 3 7",
+        "depth": 4,
+        "expected": 890467,
+        "chess960": false,
+        "actual": 890467
+      },
+      "elapsed_seconds": 0.05
+    },
+    {
+      "name": "perft/shouse/depth-3/103",
+      "passed": true,
+      "evidence": {
+        "variant": "shouse",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 546694,
+        "chess960": false,
+        "actual": 546694
+      },
+      "elapsed_seconds": 0.042
+    },
+    {
+      "name": "perft/euroshogi/depth-4/104",
+      "passed": true,
+      "evidence": {
+        "variant": "euroshogi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 380499,
+        "chess960": false,
+        "actual": 380499
+      },
+      "elapsed_seconds": 0.076
+    },
+    {
+      "name": "perft/minishogi/depth-5/105",
+      "passed": true,
+      "evidence": {
+        "variant": "minishogi",
+        "position": "startpos",
+        "depth": 5,
+        "expected": 533203,
+        "chess960": false,
+        "actual": 533203
+      },
+      "elapsed_seconds": 0.09
+    },
+    {
+      "name": "perft/kyotoshogi/depth-5/106",
+      "passed": true,
+      "evidence": {
+        "variant": "kyotoshogi",
+        "position": "startpos",
+        "depth": 5,
+        "expected": 225903,
+        "chess960": false,
+        "actual": 225903
+      },
+      "elapsed_seconds": 0.043
+    },
+    {
+      "name": "perft/micro/depth-5/107",
+      "passed": true,
+      "evidence": {
+        "variant": "micro",
+        "position": "startpos",
+        "depth": 5,
+        "expected": 71328,
+        "chess960": false,
+        "actual": 71328
+      },
+      "elapsed_seconds": 0.02
+    },
+    {
+      "name": "perft/torishogi/depth-4/108",
+      "passed": true,
+      "evidence": {
+        "variant": "torishogi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 103857,
+        "chess960": false,
+        "actual": 103857
+      },
+      "elapsed_seconds": 0.024
+    },
+    {
+      "name": "perft/koedem/depth-1/109",
+      "passed": true,
+      "evidence": {
+        "variant": "koedem",
+        "position": "fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB2BNR[KQ] w kq - 0 1",
+        "depth": 1,
+        "expected": 34,
+        "chess960": false,
+        "actual": 34
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/koedem/depth-1/110",
+      "passed": true,
+      "evidence": {
+        "variant": "koedem",
+        "position": "fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR[Q] w KQkq - 0 1",
+        "depth": 1,
+        "expected": 54,
+        "chess960": false,
+        "actual": 54
+      },
+      "elapsed_seconds": 0.01
+    },
+    {
+      "name": "perft/ataxx/depth-4/111",
+      "passed": true,
+      "evidence": {
+        "variant": "ataxx",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 155888,
+        "chess960": false,
+        "actual": 155888
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/ataxx/depth-5/112",
+      "passed": true,
+      "evidence": {
+        "variant": "ataxx",
+        "position": "fen 7/7/7/7/ppppppp/ppppppp/PPPPPPP w 0 1",
+        "depth": 5,
+        "expected": 452980,
+        "chess960": false,
+        "actual": 452980
+      },
+      "elapsed_seconds": 0.025
+    },
+    {
+      "name": "perft/breakthrough/depth-4/113",
+      "passed": true,
+      "evidence": {
+        "variant": "breakthrough",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 256036,
+        "chess960": false,
+        "actual": 256036
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "perft/breakthrough/depth-4/114",
+      "passed": true,
+      "evidence": {
+        "variant": "breakthrough",
+        "position": "fen 1p2pp1p/2p2ppp/2P5/8/8/3P2P1/1p1P2PP/1PP1PP1P w - - 1 26",
+        "depth": 4,
+        "expected": 121264,
+        "chess960": false,
+        "actual": 121264
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/clobber/depth-3/115",
+      "passed": true,
+      "evidence": {
+        "variant": "clobber",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 80063,
+        "chess960": false,
+        "actual": 80063
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/flipello/depth-7/116",
+      "passed": true,
+      "evidence": {
+        "variant": "flipello",
+        "position": "startpos",
+        "depth": 7,
+        "expected": 55092,
+        "chess960": false,
+        "actual": 55092
+      },
+      "elapsed_seconds": 0.021
+    },
+    {
+      "name": "perft/flipersi/depth-9/117",
+      "passed": true,
+      "evidence": {
+        "variant": "flipersi",
+        "position": "startpos",
+        "depth": 9,
+        "expected": 38208,
+        "chess960": false,
+        "actual": 38208
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "perft/atomic/depth-4/118",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "fen 8/8/8/8/8/8/2k5/rR4KR w KQ - 0 1",
+        "depth": 4,
+        "expected": 61401,
+        "chess960": true,
+        "actual": 61401
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/atomic/depth-4/119",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "fen r3k1rR/5K2/8/8/8/8/8/8 b kq - 0 1",
+        "depth": 4,
+        "expected": 98729,
+        "chess960": true,
+        "actual": 98729
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/atomic/depth-4/120",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "fen Rr2k1rR/3K4/3p4/8/8/8/7P/8 w kq - 0 1",
+        "depth": 4,
+        "expected": 241478,
+        "chess960": true,
+        "actual": 241478
+      },
+      "elapsed_seconds": 0.018
+    },
+    {
+      "name": "perft/atomic/depth-4/121",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "fen 1R4kr/4K3/8/8/8/8/8/8 b k - 0 1",
+        "depth": 4,
+        "expected": 17915,
+        "chess960": true,
+        "actual": 17915
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/extinction/depth-4/122",
+      "passed": true,
+      "evidence": {
+        "variant": "extinction",
+        "position": "fen rnbqb1kr/pppppppp/8/8/8/8/PPPPPPPP/RNBQB1KR w AHah - 0 1",
+        "depth": 4,
+        "expected": 195286,
+        "chess960": true,
+        "actual": 195286
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "perft/seirawan/depth-3/123",
+      "passed": true,
+      "evidence": {
+        "variant": "seirawan",
+        "position": "fen qbbrnkrn/pppppppp/8/8/8/8/PPPPPPPP/QBBRNKRN[HEhe] w ABCDEFGHabcdefgh - 0 1",
+        "depth": 3,
+        "expected": 21170,
+        "chess960": true,
+        "actual": 21170
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/shogi/depth-4/124",
+      "passed": true,
+      "evidence": {
+        "variant": "shogi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 719731,
+        "chess960": false,
+        "actual": 719731
+      },
+      "elapsed_seconds": 0.102
+    },
+    {
+      "name": "perft/shoshogi/depth-4/125",
+      "passed": true,
+      "evidence": {
+        "variant": "shoshogi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 445372,
+        "chess960": false,
+        "actual": 445372
+      },
+      "elapsed_seconds": 0.074
+    },
+    {
+      "name": "perft/yarishogi/depth-4/126",
+      "passed": true,
+      "evidence": {
+        "variant": "yarishogi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 158404,
+        "chess960": false,
+        "actual": 158404
+      },
+      "elapsed_seconds": 0.032
+    },
+    {
+      "name": "perft/capablanca/depth-4/127",
+      "passed": true,
+      "evidence": {
+        "variant": "capablanca",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 805128,
+        "chess960": false,
+        "actual": 805128
+      },
+      "elapsed_seconds": 0.041
+    },
+    {
+      "name": "perft/embassy/depth-4/128",
+      "passed": true,
+      "evidence": {
+        "variant": "embassy",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 809539,
+        "chess960": false,
+        "actual": 809539
+      },
+      "elapsed_seconds": 0.041
+    },
+    {
+      "name": "perft/janus/depth-4/129",
+      "passed": true,
+      "evidence": {
+        "variant": "janus",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 772074,
+        "chess960": false,
+        "actual": 772074
+      },
+      "elapsed_seconds": 0.04
+    },
+    {
+      "name": "perft/modern/depth-4/130",
+      "passed": true,
+      "evidence": {
+        "variant": "modern",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 433729,
+        "chess960": false,
+        "actual": 433729
+      },
+      "elapsed_seconds": 0.025
+    },
+    {
+      "name": "perft/chancellor/depth-4/131",
+      "passed": true,
+      "evidence": {
+        "variant": "chancellor",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 436656,
+        "chess960": false,
+        "actual": 436656
+      },
+      "elapsed_seconds": 0.031
+    },
+    {
+      "name": "perft/courier/depth-4/132",
+      "passed": true,
+      "evidence": {
+        "variant": "courier",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 500337,
+        "chess960": false,
+        "actual": 500337
+      },
+      "elapsed_seconds": 0.065
+    },
+    {
+      "name": "perft/grand/depth-3/133",
+      "passed": true,
+      "evidence": {
+        "variant": "grand",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 259514,
+        "chess960": false,
+        "actual": 259514
+      },
+      "elapsed_seconds": 0.017
+    },
+    {
+      "name": "perft/grand/depth-2/134",
+      "passed": true,
+      "evidence": {
+        "variant": "grand",
+        "position": "fen r8r/1nbqkcabn1/ppp2ppppp/3p6/4pP4/10/10/PPPPP1PPPP/1NBQKCABN1/R8R w - e7 0 3",
+        "depth": 2,
+        "expected": 5768,
+        "chess960": false,
+        "actual": 5768
+      },
+      "elapsed_seconds": 0.009
+    },
+    {
+      "name": "perft/opulent/depth-3/135",
+      "passed": true,
+      "evidence": {
+        "variant": "opulent",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 133829,
+        "chess960": false,
+        "actual": 133829
+      },
+      "elapsed_seconds": 0.023
+    },
+    {
+      "name": "perft/tencubed/depth-3/136",
+      "passed": true,
+      "evidence": {
+        "variant": "tencubed",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 68230,
+        "chess960": false,
+        "actual": 68230
+      },
+      "elapsed_seconds": 0.016
+    },
+    {
+      "name": "perft/centaur/depth-3/137",
+      "passed": true,
+      "evidence": {
+        "variant": "centaur",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 24490,
+        "chess960": false,
+        "actual": 24490
+      },
+      "elapsed_seconds": 0.01
+    },
+    {
+      "name": "perft/gustav3/depth-4/138",
+      "passed": true,
+      "evidence": {
+        "variant": "gustav3",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 331659,
+        "chess960": false,
+        "actual": 331659
+      },
+      "elapsed_seconds": 0.065
+    },
+    {
+      "name": "perft/omicron/depth-4/139",
+      "passed": true,
+      "evidence": {
+        "variant": "omicron",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 967381,
+        "chess960": false,
+        "actual": 967381
+      },
+      "elapsed_seconds": 0.148
+    },
+    {
+      "name": "perft/troitzky/depth-3/140",
+      "passed": true,
+      "evidence": {
+        "variant": "troitzky",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 8766,
+        "chess960": false,
+        "actual": 8766
+      },
+      "elapsed_seconds": 0.009
+    },
+    {
+      "name": "perft/wolf/depth-3/141",
+      "passed": true,
+      "evidence": {
+        "variant": "wolf",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 13722,
+        "chess960": false,
+        "actual": 13722
+      },
+      "elapsed_seconds": 0.01
+    },
+    {
+      "name": "perft/wolf/depth-4/142",
+      "passed": true,
+      "evidence": {
+        "variant": "wolf",
+        "position": "fen 8/k5SP/8/8/8/8/8/8/8/7K w - - 0 1",
+        "depth": 4,
+        "expected": 10587,
+        "chess960": false,
+        "actual": 10587
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "perft/shako/depth-3/143",
+      "passed": true,
+      "evidence": {
+        "variant": "shako",
+        "position": "fen 4kc3c/ernbq1b1re/ppp3p1pp/3p2pp2/4p5/5P4/2PN2P3/PP1PP2PPP/ER1BQKBNR1/5C3C w KQ - 0 9",
+        "depth": 3,
+        "expected": 26325,
+        "chess960": false,
+        "actual": 26325
+      },
+      "elapsed_seconds": 0.018
+    },
+    {
+      "name": "perft/shako/depth-3/144",
+      "passed": true,
+      "evidence": {
+        "variant": "shako",
+        "position": "fen 4ncr1k1/1cr2P4/pp2p2pp1/P7PN/2Ep1p4/B3P1eN2/2P1n1P3/1B1P1K4/9p/5C2CR w - - 0 1",
+        "depth": 3,
+        "expected": 180467,
+        "chess960": false,
+        "actual": 180467
+      },
+      "elapsed_seconds": 0.04
+    },
+    {
+      "name": "perft/shako/depth-2/145",
+      "passed": true,
+      "evidence": {
+        "variant": "shako",
+        "position": "fen r5k3/4q2c2/1ebppnp3/1pp3BeEQ/10/2PE2P3/1P3P4/5NP2P/rR3KB3/7C2 w Q - 3 35",
+        "depth": 2,
+        "expected": 4940,
+        "chess960": false,
+        "actual": 4940
+      },
+      "elapsed_seconds": 0.009
+    },
+    {
+      "name": "perft/shako/depth-2/146",
+      "passed": true,
+      "evidence": {
+        "variant": "shako",
+        "position": "fen 10/rr3k4/ppppp5/10/10/10/10/6PPPP/5K2RR/10 w Kq - 0 1",
+        "depth": 2,
+        "expected": 460,
+        "chess960": false,
+        "actual": 460
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/xiangqi/depth-4/147",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 3290240,
+        "chess960": false,
+        "actual": 3290240
+      },
+      "elapsed_seconds": 0.353
+    },
+    {
+      "name": "perft/xiangqi/depth-4/148",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "position": "fen 1rbaka2R/5r3/6n2/2p1p1p2/4P1bP1/PpC3Bc1/1nPR2P2/2N2AN2/1c2K1p2/2BAC4 w - - 0 1",
+        "depth": 4,
+        "expected": 4485547,
+        "chess960": false,
+        "actual": 4485547
+      },
+      "elapsed_seconds": 0.452
+    },
+    {
+      "name": "perft/xiangqi/depth-4/149",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "position": "fen 4kcP1N/8n/3rb4/9/9/9/9/3p1A3/4K4/5CB2 w - - 0 1",
+        "depth": 4,
+        "expected": 92741,
+        "chess960": false,
+        "actual": 92741
+      },
+      "elapsed_seconds": 0.018
+    },
+    {
+      "name": "perft/manchu/depth-4/150",
+      "passed": true,
+      "evidence": {
+        "variant": "manchu",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 798554,
+        "chess960": false,
+        "actual": 798554
+      },
+      "elapsed_seconds": 0.088
+    },
+    {
+      "name": "perft/janggi/depth-4/151",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "position": "startpos",
+        "depth": 4,
+        "expected": 1065277,
+        "chess960": false,
+        "actual": 1065277
+      },
+      "elapsed_seconds": 0.143
+    },
+    {
+      "name": "perft/janggi/depth-4/152",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "position": "fen 1n1kaabn1/cr2N4/5C1c1/p1pNp3p/9/9/P1PbP1P1P/3r1p3/4A4/R1BA1KB1R b - - 0 1",
+        "depth": 4,
+        "expected": 76763,
+        "chess960": false,
+        "actual": 76763
+      },
+      "elapsed_seconds": 0.019
+    },
+    {
+      "name": "perft/janggi/depth-4/153",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "position": "fen 1Pbcka3/3nNn1c1/N2CaC3/1pB6/9/9/5P3/9/4K4/9 w - - 0 23",
+        "depth": 4,
+        "expected": 151202,
+        "chess960": false,
+        "actual": 151202
+      },
+      "elapsed_seconds": 0.029
+    },
+    {
+      "name": "perft/jesonmor/depth-3/154",
+      "passed": true,
+      "evidence": {
+        "variant": "jesonmor",
+        "position": "startpos",
+        "depth": 3,
+        "expected": 27960,
+        "chess960": false,
+        "actual": 27960
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/jesonmor/depth-3/155",
+      "passed": true,
+      "evidence": {
+        "variant": "jesonmor",
+        "position": "fen nn1nnn1nn/9/3n1n3/9/9/9/3N1N3/9/NN1NNN1NN w - - 4 3",
+        "depth": 3,
+        "expected": 37564,
+        "chess960": false,
+        "actual": 37564
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "perft/flipello10/depth-7/156",
+      "passed": true,
+      "evidence": {
+        "variant": "flipello10",
+        "position": "startpos",
+        "depth": 7,
+        "expected": 55180,
+        "chess960": false,
+        "actual": 55180
+      },
+      "elapsed_seconds": 0.021
+    },
+    {
+      "name": "perft/duck/depth-1/157",
+      "passed": true,
+      "evidence": {
+        "variant": "duck",
+        "position": "startpos",
+        "depth": 1,
+        "expected": 640,
+        "chess960": false,
+        "actual": 640
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "perft/amazons/depth-1/158",
+      "passed": true,
+      "evidence": {
+        "variant": "amazons",
+        "position": "startpos",
+        "depth": 1,
+        "expected": 2176,
+        "chess960": false,
+        "actual": 2176
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "search/chess",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/fischerandom",
+      "passed": true,
+      "evidence": {
+        "variant": "fischerandom",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/nocastle",
+      "passed": true,
+      "evidence": {
+        "variant": "nocastle",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/3check",
+      "passed": true,
+      "evidence": {
+        "variant": "3check",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/5check",
+      "passed": true,
+      "evidence": {
+        "variant": "5check",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "search/kingofthehill",
+      "passed": true,
+      "evidence": {
+        "variant": "kingofthehill",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/racingkings",
+      "passed": true,
+      "evidence": {
+        "variant": "racingkings",
+        "legal_moves": 21,
+        "bestmove": "f2d4"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/horde",
+      "passed": true,
+      "evidence": {
+        "variant": "horde",
+        "legal_moves": 8,
+        "bestmove": "d4d5"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/atomic",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "legal_moves": 20,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/crazyhouse",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/antichess",
+      "passed": true,
+      "evidence": {
+        "variant": "antichess",
+        "legal_moves": 20,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/giveaway",
+      "passed": true,
+      "evidence": {
+        "variant": "giveaway",
+        "legal_moves": 20,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/seirawan",
+      "passed": true,
+      "evidence": {
+        "variant": "seirawan",
+        "legal_moves": 28,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/capablanca",
+      "passed": true,
+      "evidence": {
+        "variant": "capablanca",
+        "legal_moves": 28,
+        "bestmove": "d2d3"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/gothic",
+      "passed": true,
+      "evidence": {
+        "variant": "gothic",
+        "legal_moves": 28,
+        "bestmove": "g2g3"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/grand",
+      "passed": true,
+      "evidence": {
+        "variant": "grand",
+        "legal_moves": 65,
+        "bestmove": "g3g4"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/embassy",
+      "passed": true,
+      "evidence": {
+        "variant": "embassy",
+        "legal_moves": 28,
+        "bestmove": "d2d4"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/janus",
+      "passed": true,
+      "evidence": {
+        "variant": "janus",
+        "legal_moves": 28,
+        "bestmove": "e2e4"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/duck",
+      "passed": true,
+      "evidence": {
+        "variant": "duck",
+        "legal_moves": 640,
+        "bestmove": "d2d4,d4a3"
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "search/torpedo",
+      "passed": true,
+      "evidence": {
+        "variant": "torpedo",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "search/pawnsideways",
+      "passed": true,
+      "evidence": {
+        "variant": "pawnsideways",
+        "legal_moves": 20,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/shogi",
+      "passed": true,
+      "evidence": {
+        "variant": "shogi",
+        "legal_moves": 30,
+        "bestmove": "c3c4"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/minishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "minishogi",
+        "legal_moves": 14,
+        "bestmove": "d1c2"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/kyotoshogi",
+      "passed": true,
+      "evidence": {
+        "variant": "kyotoshogi",
+        "legal_moves": 12,
+        "bestmove": "b1b2+"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/dobutsu",
+      "passed": true,
+      "evidence": {
+        "variant": "dobutsu",
+        "legal_moves": 4,
+        "bestmove": "b1c2"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/torishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "torishogi",
+        "legal_moves": 17,
+        "bestmove": "e4e5"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/yarishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "yarishogi",
+        "legal_moves": 20,
+        "bestmove": "a1a2"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/okisakishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "okisakishogi",
+        "legal_moves": 37,
+        "bestmove": "c3c4"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/janggi",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "legal_moves": 32,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/janggitraditional",
+      "passed": true,
+      "evidence": {
+        "variant": "janggitraditional",
+        "legal_moves": 32,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "search/janggimodern",
+      "passed": true,
+      "evidence": {
+        "variant": "janggimodern",
+        "legal_moves": 32,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "search/janggicasual",
+      "passed": true,
+      "evidence": {
+        "variant": "janggicasual",
+        "legal_moves": 32,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "search/xiangqi",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "legal_moves": 44,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.008
+    },
+    {
+      "name": "search/minixiangqi",
+      "passed": true,
+      "evidence": {
+        "variant": "minixiangqi",
+        "legal_moves": 19,
+        "bestmove": "a2b2"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/manchu",
+      "passed": true,
+      "evidence": {
+        "variant": "manchu",
+        "legal_moves": 18,
+        "bestmove": "a1b3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/supply",
+      "passed": true,
+      "evidence": {
+        "variant": "supply",
+        "legal_moves": 44,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/makruk",
+      "passed": true,
+      "evidence": {
+        "variant": "makruk",
+        "legal_moves": 23,
+        "bestmove": "b1d2"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/makpong",
+      "passed": true,
+      "evidence": {
+        "variant": "makpong",
+        "legal_moves": 23,
+        "bestmove": "b1d2"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/asean",
+      "passed": true,
+      "evidence": {
+        "variant": "asean",
+        "legal_moves": 23,
+        "bestmove": "h3h4"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/cambodian",
+      "passed": true,
+      "evidence": {
+        "variant": "cambodian",
+        "legal_moves": 25,
+        "bestmove": "b1d2"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/karouk",
+      "passed": true,
+      "evidence": {
+        "variant": "karouk",
+        "legal_moves": 25,
+        "bestmove": "g1e2"
+      },
+      "elapsed_seconds": 0.006
+    },
+    {
+      "name": "search/sittuyin",
+      "passed": true,
+      "evidence": {
+        "variant": "sittuyin",
+        "legal_moves": 88,
+        "bestmove": "N@e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/shatranj",
+      "passed": true,
+      "evidence": {
+        "variant": "shatranj",
+        "legal_moves": 16,
+        "bestmove": "g1f3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/courier",
+      "passed": true,
+      "evidence": {
+        "variant": "courier",
+        "legal_moves": 26,
+        "bestmove": "c1e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/shatar",
+      "passed": true,
+      "evidence": {
+        "variant": "shatar",
+        "legal_moves": 20,
+        "bestmove": "e2e3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/jesonmor",
+      "passed": true,
+      "evidence": {
+        "variant": "jesonmor",
+        "legal_moves": 30,
+        "bestmove": "c1d3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "search/chaturanga",
+      "passed": true,
+      "evidence": {
+        "variant": "chaturanga",
+        "legal_moves": 16,
+        "bestmove": "b1c3"
+      },
+      "elapsed_seconds": 0.007
+    },
+    {
+      "name": "protocol/limits-and-multipv",
+      "passed": true,
+      "evidence": {
+        "multipv": [
+          1,
+          2,
+          3
+        ],
+        "nodes 1500": {
+          "elapsed_seconds": 0.003,
+          "bestmove": "b1c3"
+        },
+        "movetime 60": {
+          "elapsed_seconds": 0.062,
+          "bestmove": "e2e4"
+        },
+        "wtime 1500 btime 1500 winc 10 binc 10 movestogo 20": {
+          "elapsed_seconds": 0.055,
+          "bestmove": "e2e4"
+        }
+      },
+      "elapsed_seconds": 0.136
+    },
+    {
+      "name": "protocol/stop-and-ponder",
+      "passed": true,
+      "evidence": {
+        "stop_seconds": 0.0001,
+        "ponderhit": true
+      },
+      "elapsed_seconds": 0.095
+    },
+    {
+      "name": "search/two-threads",
+      "passed": true,
+      "evidence": {
+        "threads": 2,
+        "variants": 5,
+        "scope": "bounded concurrent search, not race-detector proof"
+      },
+      "elapsed_seconds": 0.117
+    },
+    {
+      "name": "search/hybrid-has-real-effect",
+      "passed": true,
+      "evidence": {
+        "modes": {
+          "off": {
+            "nodes": 2767,
+            "bestmove": "e2a6"
+          },
+          "desktop": {
+            "nodes": 4941,
+            "bestmove": "e2a6"
+          },
+          "mobile": {
+            "nodes": 2817,
+            "bestmove": "e2a6"
+          }
+        },
+        "interpretation": "demonstrates real search effect, not playing-strength improvement"
+      },
+      "elapsed_seconds": 0.044
+    },
+    {
+      "name": "search/overdrive-bounded-and-mobile-inert",
+      "passed": true,
+      "evidence": {
+        "modes": {
+          "mobile=False,overdrive=False": {
+            "bestmove": "e2a6",
+            "nodes": 7048
+          },
+          "mobile=False,overdrive=True": {
+            "bestmove": "e2a6",
+            "nodes": 7068
+          },
+          "mobile=True,overdrive=False": {
+            "bestmove": "e2a6",
+            "nodes": 8668
+          },
+          "mobile=True,overdrive=True": {
+            "bestmove": "e2a6",
+            "nodes": 8668
+          }
+        },
+        "scope": "bounded forcing-position regression, not exhaustive depth proof"
+      },
+      "elapsed_seconds": 0.086
+    },
+    {
+      "name": "playout/chess",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "e2e3",
+          "e7e6",
+          "d1e2",
+          "b8c6",
+          "b1c3",
+          "d7d5",
+          "d2d4",
+          "g8f6",
+          "a2a3",
+          "f6e4",
+          "h2h4",
+          "a7a6",
+          "c3e4",
+          "d5e4",
+          "c2c4",
+          "b7b6",
+          "e2c2",
+          "f7f5",
+          "c2a4",
+          "c8b7",
+          "h4h5",
+          "h7h6",
+          "g1e2",
+          "a6a5",
+          "e2f4",
+          "d8d7",
+          "f4g6",
+          "h8g8",
+          "a4c2",
+          "e8c8",
+          "c1d2",
+          "c8b8"
+        ]
+      },
+      "elapsed_seconds": 0.03
+    },
+    {
+      "name": "playout/atomic",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "b1c3",
+          "d7d5",
+          "d2d4",
+          "e7e5",
+          "c1g5",
+          "f7f6",
+          "c3b5",
+          "c8g4",
+          "f2f3",
+          "b8c6",
+          "b5d6",
+          "c7d6",
+          "c2c3",
+          "g4d7",
+          "g5h4",
+          "d7b5",
+          "c3c4",
+          "b5a4",
+          "b2b3",
+          "g7g5",
+          "e2e4",
+          "g8e7",
+          "h4f2",
+          "a4d7",
+          "b3b4",
+          "d7a4",
+          "d1c1",
+          "g5g4",
+          "f2h4",
+          "g4g3",
+          "h4g3",
+          "f8h6"
+        ]
+      },
+      "elapsed_seconds": 0.03
+    },
+    {
+      "name": "playout/crazyhouse",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "e2e3",
+          "e7e6",
+          "d1g4",
+          "g8f6",
+          "g4d4",
+          "b8c6",
+          "d4a4",
+          "d8e7",
+          "b1c3",
+          "e7b4",
+          "a4b4",
+          "c6b4",
+          "Q@b3",
+          "Q@f5",
+          "d2d3",
+          "f6g4",
+          "g1f3",
+          "d7d5",
+          "a2a3",
+          "b4c6",
+          "e3e4",
+          "d5e4",
+          "d3e4",
+          "f5c5",
+          "P@e3",
+          "a7a6",
+          "c1d2",
+          "P@b5",
+          "a1d1",
+          "c8d7",
+          "h2h3",
+          "g4f6"
+        ]
+      },
+      "elapsed_seconds": 0.038
+    },
+    {
+      "name": "playout/shogi",
+      "passed": true,
+      "evidence": {
+        "variant": "shogi",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "c3c4",
+          "g7g6",
+          "b2h8",
+          "b8h8",
+          "B@c3",
+          "B@g7",
+          "c1c2",
+          "g7c3",
+          "b1c3",
+          "B@h6",
+          "B@d4",
+          "h9g7",
+          "c3d5",
+          "h8e8",
+          "f3f4",
+          "d7d6",
+          "h2f2",
+          "d6d5",
+          "d4c3",
+          "e8d8",
+          "h3h4",
+          "d8d6",
+          "h4h5",
+          "h6i5",
+          "i3i4",
+          "d6e6",
+          "i4i5",
+          "e6e3+",
+          "B@e2",
+          "g9g8",
+          "d1d2",
+          "e3e4"
+        ]
+      },
+      "elapsed_seconds": 0.05
+    },
+    {
+      "name": "playout/janggi",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "b1c3",
+          "b10c8",
+          "b3g3",
+          "i7h7",
+          "g4h4",
+          "b8g8",
+          "a4b4",
+          "h8h4",
+          "i1i3",
+          "h4h8",
+          "c4d4",
+          "a10b10",
+          "a1a4",
+          "e7d7",
+          "b4b5",
+          "g10e7",
+          "i4i5",
+          "h10f9",
+          "i3i4",
+          "e9d9",
+          "e2e1",
+          "d10e9",
+          "d1e2",
+          "e7g4",
+          "e4f4",
+          "g8a8",
+          "a4b4",
+          "h8b8",
+          "b4c4",
+          "b8i8",
+          "i4g4",
+          "i8i1"
+        ]
+      },
+      "elapsed_seconds": 0.041
+    },
+    {
+      "name": "playout/xiangqi",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "b1c3",
+          "b8c8",
+          "h1g3",
+          "h10g8",
+          "b3b8",
+          "c10e8",
+          "a1b1",
+          "b10d9",
+          "b8b9",
+          "d10e9",
+          "b1b4",
+          "a10d10",
+          "d1e2",
+          "h8h6",
+          "g1e3",
+          "g7g6",
+          "c4c5",
+          "g8f6",
+          "e4e5",
+          "h6h4",
+          "g4g5",
+          "h4h6",
+          "b9b6",
+          "c7c6",
+          "b4b5",
+          "c8b8",
+          "b5a5",
+          "f6d7",
+          "g5g6",
+          "e8g6",
+          "g3f5",
+          "h6i6"
+        ]
+      },
+      "elapsed_seconds": 0.042
+    },
+    {
+      "name": "playout/makruk",
+      "passed": true,
+      "evidence": {
+        "variant": "makruk",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "b1d2",
+          "b8d7",
+          "d2c4",
+          "d6d5",
+          "c4d6",
+          "e8e7",
+          "d6c8",
+          "a8c8",
+          "g1e2",
+          "d7c5",
+          "e2f4",
+          "e7f7",
+          "b3b4",
+          "c5a4",
+          "c3c4",
+          "e6e5",
+          "f4e2",
+          "h6h5",
+          "a1b1",
+          "b6b5",
+          "c4c5",
+          "g8e7",
+          "e3e4",
+          "d5d4",
+          "d1c2",
+          "h5h4",
+          "g3g4",
+          "g6g5",
+          "c1d2",
+          "f7g6",
+          "c2b3",
+          "a6a5"
+        ]
+      },
+      "elapsed_seconds": 0.031
+    },
+    {
+      "name": "playout/antichess",
+      "passed": true,
+      "evidence": {
+        "variant": "antichess",
+        "plies": 32,
+        "ended": false,
+        "moves": [
+          "b1c3",
+          "d7d5",
+          "c3d5",
+          "d8d5",
+          "d2d4",
+          "d5g2",
+          "f1g2",
+          "c8d7",
+          "g2b7",
+          "d7e6",
+          "b7a8",
+          "e6a2",
+          "a1a2",
+          "g7g6",
+          "a2a7",
+          "e7e6",
+          "a7c7",
+          "e6e5",
+          "c7f7",
+          "e8f7",
+          "d4e5",
+          "b8c6",
+          "a8c6",
+          "f8a3",
+          "b2a3",
+          "f7e8",
+          "c6e8",
+          "h7h6",
+          "c1h6",
+          "h8h6",
+          "e8g6",
+          "h6h2"
+        ]
+      },
+      "elapsed_seconds": 0.021
+    },
+    {
+      "name": "differential/startpos/3check",
+      "passed": true,
+      "evidence": {
+        "variant": "3check",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/5check",
+      "passed": true,
+      "evidence": {
+        "variant": "5check",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/ai-wok",
+      "passed": true,
+      "evidence": {
+        "variant": "ai-wok",
+        "legal_moves": 26
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/almost",
+      "passed": true,
+      "evidence": {
+        "variant": "almost",
+        "legal_moves": 22
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/amazon",
+      "passed": true,
+      "evidence": {
+        "variant": "amazon",
+        "legal_moves": 22
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/amazons",
+      "passed": true,
+      "evidence": {
+        "variant": "amazons",
+        "legal_moves": 2176
+      },
+      "elapsed_seconds": 0.028
+    },
+    {
+      "name": "differential/startpos/antichess",
+      "passed": true,
+      "evidence": {
+        "variant": "antichess",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/armageddon",
+      "passed": true,
+      "evidence": {
+        "variant": "armageddon",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/asean",
+      "passed": true,
+      "evidence": {
+        "variant": "asean",
+        "legal_moves": 23
+      },
+      "elapsed_seconds": 0.018
+    },
+    {
+      "name": "differential/startpos/ataxx",
+      "passed": true,
+      "evidence": {
+        "variant": "ataxx",
+        "legal_moves": 16
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/atomar",
+      "passed": true,
+      "evidence": {
+        "variant": "atomar",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/atomic",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/berolina",
+      "passed": true,
+      "evidence": {
+        "variant": "berolina",
+        "legal_moves": 30
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/breakthrough",
+      "passed": true,
+      "evidence": {
+        "variant": "breakthrough",
+        "legal_moves": 22
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/bughouse",
+      "passed": true,
+      "evidence": {
+        "variant": "bughouse",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/cambodian",
+      "passed": true,
+      "evidence": {
+        "variant": "cambodian",
+        "legal_moves": 25
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/capablanca",
+      "passed": true,
+      "evidence": {
+        "variant": "capablanca",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/capahouse",
+      "passed": true,
+      "evidence": {
+        "variant": "capahouse",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/caparandom",
+      "passed": true,
+      "evidence": {
+        "variant": "caparandom",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/centaur",
+      "passed": true,
+      "evidence": {
+        "variant": "centaur",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/chancellor",
+      "passed": true,
+      "evidence": {
+        "variant": "chancellor",
+        "legal_moves": 24
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/chaturanga",
+      "passed": true,
+      "evidence": {
+        "variant": "chaturanga",
+        "legal_moves": 16
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/checkshogi",
+      "passed": true,
+      "evidence": {
+        "variant": "checkshogi",
+        "legal_moves": 30
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/chess",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/chessgi",
+      "passed": true,
+      "evidence": {
+        "variant": "chessgi",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.016
+    },
+    {
+      "name": "differential/startpos/chigorin",
+      "passed": true,
+      "evidence": {
+        "variant": "chigorin",
+        "legal_moves": 26
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/clobber",
+      "passed": true,
+      "evidence": {
+        "variant": "clobber",
+        "legal_moves": 49
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/clobber10",
+      "passed": true,
+      "evidence": {
+        "variant": "clobber10",
+        "legal_moves": 180
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/codrus",
+      "passed": true,
+      "evidence": {
+        "variant": "codrus",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/coregal",
+      "passed": true,
+      "evidence": {
+        "variant": "coregal",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/courier",
+      "passed": true,
+      "evidence": {
+        "variant": "courier",
+        "legal_moves": 26
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/crazyhouse",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/dobutsu",
+      "passed": true,
+      "evidence": {
+        "variant": "dobutsu",
+        "legal_moves": 4
+      },
+      "elapsed_seconds": 0.016
+    },
+    {
+      "name": "differential/startpos/dragon",
+      "passed": true,
+      "evidence": {
+        "variant": "dragon",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.023
+    },
+    {
+      "name": "differential/startpos/duck",
+      "passed": true,
+      "evidence": {
+        "variant": "duck",
+        "legal_moves": 640
+      },
+      "elapsed_seconds": 0.031
+    },
+    {
+      "name": "differential/startpos/embassy",
+      "passed": true,
+      "evidence": {
+        "variant": "embassy",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.019
+    },
+    {
+      "name": "differential/startpos/euroshogi",
+      "passed": true,
+      "evidence": {
+        "variant": "euroshogi",
+        "legal_moves": 25
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/extinction",
+      "passed": true,
+      "evidence": {
+        "variant": "extinction",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/fairy",
+      "passed": true,
+      "evidence": {
+        "variant": "fairy",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/fischerandom",
+      "passed": true,
+      "evidence": {
+        "variant": "fischerandom",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/flipello",
+      "passed": true,
+      "evidence": {
+        "variant": "flipello",
+        "legal_moves": 4
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/flipello10",
+      "passed": true,
+      "evidence": {
+        "variant": "flipello10",
+        "legal_moves": 4
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/flipersi",
+      "passed": true,
+      "evidence": {
+        "variant": "flipersi",
+        "legal_moves": 4
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/fox-and-hounds",
+      "passed": true,
+      "evidence": {
+        "variant": "fox-and-hounds",
+        "legal_moves": 2
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/gardner",
+      "passed": true,
+      "evidence": {
+        "variant": "gardner",
+        "legal_moves": 7
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/georgian",
+      "passed": true,
+      "evidence": {
+        "variant": "georgian",
+        "legal_moves": 22
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/giveaway",
+      "passed": true,
+      "evidence": {
+        "variant": "giveaway",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/gorogoro",
+      "passed": true,
+      "evidence": {
+        "variant": "gorogoro",
+        "legal_moves": 16
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/gothic",
+      "passed": true,
+      "evidence": {
+        "variant": "gothic",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/grand",
+      "passed": true,
+      "evidence": {
+        "variant": "grand",
+        "legal_moves": 65
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/grasshopper",
+      "passed": true,
+      "evidence": {
+        "variant": "grasshopper",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/gustav3",
+      "passed": true,
+      "evidence": {
+        "variant": "gustav3",
+        "legal_moves": 22
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/hoppelpoppel",
+      "passed": true,
+      "evidence": {
+        "variant": "hoppelpoppel",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/horde",
+      "passed": true,
+      "evidence": {
+        "variant": "horde",
+        "legal_moves": 8
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/isolation",
+      "passed": true,
+      "evidence": {
+        "variant": "isolation",
+        "legal_moves": 225
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/isolation7x7",
+      "passed": true,
+      "evidence": {
+        "variant": "isolation7x7",
+        "legal_moves": 230
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/janggi",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "legal_moves": 32
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/janggicasual",
+      "passed": true,
+      "evidence": {
+        "variant": "janggicasual",
+        "legal_moves": 32
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/janggimodern",
+      "passed": true,
+      "evidence": {
+        "variant": "janggimodern",
+        "legal_moves": 32
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/janggitraditional",
+      "passed": true,
+      "evidence": {
+        "variant": "janggitraditional",
+        "legal_moves": 32
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/janus",
+      "passed": true,
+      "evidence": {
+        "variant": "janus",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/jesonmor",
+      "passed": true,
+      "evidence": {
+        "variant": "jesonmor",
+        "legal_moves": 30
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/joust",
+      "passed": true,
+      "evidence": {
+        "variant": "joust",
+        "legal_moves": 8
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/judkins",
+      "passed": true,
+      "evidence": {
+        "variant": "judkins",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/karouk",
+      "passed": true,
+      "evidence": {
+        "variant": "karouk",
+        "legal_moves": 25
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/kinglet",
+      "passed": true,
+      "evidence": {
+        "variant": "kinglet",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/kingofthehill",
+      "passed": true,
+      "evidence": {
+        "variant": "kingofthehill",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/knightmate",
+      "passed": true,
+      "evidence": {
+        "variant": "knightmate",
+        "legal_moves": 18
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/koedem",
+      "passed": true,
+      "evidence": {
+        "variant": "koedem",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/kyotoshogi",
+      "passed": true,
+      "evidence": {
+        "variant": "kyotoshogi",
+        "legal_moves": 12
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/legan",
+      "passed": true,
+      "evidence": {
+        "variant": "legan",
+        "legal_moves": 8
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/loop",
+      "passed": true,
+      "evidence": {
+        "variant": "loop",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/losalamos",
+      "passed": true,
+      "evidence": {
+        "variant": "losalamos",
+        "legal_moves": 10
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/losers",
+      "passed": true,
+      "evidence": {
+        "variant": "losers",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/makpong",
+      "passed": true,
+      "evidence": {
+        "variant": "makpong",
+        "legal_moves": 23
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/makruk",
+      "passed": true,
+      "evidence": {
+        "variant": "makruk",
+        "legal_moves": 23
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/manchu",
+      "passed": true,
+      "evidence": {
+        "variant": "manchu",
+        "legal_moves": 18
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/micro",
+      "passed": true,
+      "evidence": {
+        "variant": "micro",
+        "legal_moves": 9
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/mini",
+      "passed": true,
+      "evidence": {
+        "variant": "mini",
+        "legal_moves": 14
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/minishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "minishogi",
+        "legal_moves": 14
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/minixiangqi",
+      "passed": true,
+      "evidence": {
+        "variant": "minixiangqi",
+        "legal_moves": 19
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/misere",
+      "passed": true,
+      "evidence": {
+        "variant": "misere",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/modern",
+      "passed": true,
+      "evidence": {
+        "variant": "modern",
+        "legal_moves": 24
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/newzealand",
+      "passed": true,
+      "evidence": {
+        "variant": "newzealand",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/nightrider",
+      "passed": true,
+      "evidence": {
+        "variant": "nightrider",
+        "legal_moves": 24
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/nocastle",
+      "passed": true,
+      "evidence": {
+        "variant": "nocastle",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/nocheckatomic",
+      "passed": true,
+      "evidence": {
+        "variant": "nocheckatomic",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/normal",
+      "passed": true,
+      "evidence": {
+        "variant": "normal",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.011
+    },
+    {
+      "name": "differential/startpos/okisakishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "okisakishogi",
+        "legal_moves": 37
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/omicron",
+      "passed": true,
+      "evidence": {
+        "variant": "omicron",
+        "legal_moves": 30
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/opulent",
+      "passed": true,
+      "evidence": {
+        "variant": "opulent",
+        "legal_moves": 50
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/paradigm",
+      "passed": true,
+      "evidence": {
+        "variant": "paradigm",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/pawnback",
+      "passed": true,
+      "evidence": {
+        "variant": "pawnback",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/pawnsideways",
+      "passed": true,
+      "evidence": {
+        "variant": "pawnsideways",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/perfect",
+      "passed": true,
+      "evidence": {
+        "variant": "perfect",
+        "legal_moves": 23
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/petrified",
+      "passed": true,
+      "evidence": {
+        "variant": "petrified",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/placement",
+      "passed": true,
+      "evidence": {
+        "variant": "placement",
+        "legal_moves": 40
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/pocketknight",
+      "passed": true,
+      "evidence": {
+        "variant": "pocketknight",
+        "legal_moves": 52
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/raazuvaa",
+      "passed": true,
+      "evidence": {
+        "variant": "raazuvaa",
+        "legal_moves": 12
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/racingkings",
+      "passed": true,
+      "evidence": {
+        "variant": "racingkings",
+        "legal_moves": 21
+      },
+      "elapsed_seconds": 0.011
+    },
+    {
+      "name": "differential/startpos/seirawan",
+      "passed": true,
+      "evidence": {
+        "variant": "seirawan",
+        "legal_moves": 28
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/shako",
+      "passed": true,
+      "evidence": {
+        "variant": "shako",
+        "legal_moves": 58
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/shatar",
+      "passed": true,
+      "evidence": {
+        "variant": "shatar",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/shatranj",
+      "passed": true,
+      "evidence": {
+        "variant": "shatranj",
+        "legal_moves": 16
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/shogi",
+      "passed": true,
+      "evidence": {
+        "variant": "shogi",
+        "legal_moves": 30
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/shoshogi",
+      "passed": true,
+      "evidence": {
+        "variant": "shoshogi",
+        "legal_moves": 26
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/shouse",
+      "passed": true,
+      "evidence": {
+        "variant": "shouse",
+        "legal_moves": 92
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/sittuyin",
+      "passed": true,
+      "evidence": {
+        "variant": "sittuyin",
+        "legal_moves": 88
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/snailtrail",
+      "passed": true,
+      "evidence": {
+        "variant": "snailtrail",
+        "legal_moves": 3
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/sortofalmost",
+      "passed": true,
+      "evidence": {
+        "variant": "sortofalmost",
+        "legal_moves": 22
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/startpos/spartan",
+      "passed": true,
+      "evidence": {
+        "variant": "spartan",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/suicide",
+      "passed": true,
+      "evidence": {
+        "variant": "suicide",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/supply",
+      "passed": true,
+      "evidence": {
+        "variant": "supply",
+        "legal_moves": 44
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/tencubed",
+      "passed": true,
+      "evidence": {
+        "variant": "tencubed",
+        "legal_moves": 40
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/threekings",
+      "passed": true,
+      "evidence": {
+        "variant": "threekings",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.011
+    },
+    {
+      "name": "differential/startpos/torishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "torishogi",
+        "legal_moves": 17
+      },
+      "elapsed_seconds": 0.012
+    },
+    {
+      "name": "differential/startpos/torpedo",
+      "passed": true,
+      "evidence": {
+        "variant": "torpedo",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/troitzky",
+      "passed": true,
+      "evidence": {
+        "variant": "troitzky",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/wolf",
+      "passed": true,
+      "evidence": {
+        "variant": "wolf",
+        "legal_moves": 23
+      },
+      "elapsed_seconds": 0.014
+    },
+    {
+      "name": "differential/startpos/xiangqi",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "legal_moves": 44
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/startpos/yarishogi",
+      "passed": true,
+      "evidence": {
+        "variant": "yarishogi",
+        "legal_moves": 20
+      },
+      "elapsed_seconds": 0.013
+    },
+    {
+      "name": "differential/playout/chess",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "plies": 12,
+        "moves": [
+          "e2e4",
+          "d7d5",
+          "e1e2",
+          "b8a6",
+          "b2b3",
+          "c8h3",
+          "e2e1",
+          "a6c5",
+          "f2f3",
+          "d8b8",
+          "f1d3",
+          "h3e6"
+        ]
+      },
+      "elapsed_seconds": 0.019
+    },
+    {
+      "name": "differential/playout/atomic",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "plies": 12,
+        "moves": [
+          "e2e4",
+          "d7d5",
+          "e1e2",
+          "b8a6",
+          "b2b3",
+          "c8h3",
+          "e2e1",
+          "a6c5",
+          "f2f3",
+          "d8b8",
+          "f1d3",
+          "h3e6"
+        ]
+      },
+      "elapsed_seconds": 0.019
+    },
+    {
+      "name": "differential/playout/crazyhouse",
+      "passed": true,
+      "evidence": {
+        "variant": "crazyhouse",
+        "plies": 12,
+        "moves": [
+          "e2e4",
+          "d7d5",
+          "e1e2",
+          "b8a6",
+          "b2b3",
+          "c8h3",
+          "e2e1",
+          "a6c5",
+          "f2f3",
+          "d8b8",
+          "f1d3",
+          "h3e6"
+        ]
+      },
+      "elapsed_seconds": 0.018
+    },
+    {
+      "name": "differential/playout/shogi",
+      "passed": true,
+      "evidence": {
+        "variant": "shogi",
+        "plies": 12,
+        "moves": [
+          "e1e2",
+          "i7i6",
+          "g1f2",
+          "h9i7",
+          "c1d2",
+          "b8a8",
+          "f1e1",
+          "a8g8",
+          "d2c1",
+          "e9f8",
+          "c3c4",
+          "f8e8"
+        ]
+      },
+      "elapsed_seconds": 0.016
+    },
+    {
+      "name": "differential/playout/janggi",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "plies": 12,
+        "moves": [
+          "e2d2",
+          "i10i8",
+          "e4f4",
+          "a10a8",
+          "g4g5",
+          "c7c6",
+          "f4g4",
+          "e7d7",
+          "i1i3",
+          "b10c8",
+          "c4b4",
+          "a8a9"
+        ]
+      },
+      "elapsed_seconds": 0.018
+    },
+    {
+      "name": "differential/playout/xiangqi",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "plies": 12,
+        "moves": [
+          "b3b7",
+          "h8f8",
+          "b1a3",
+          "f8f6",
+          "i1i2",
+          "b8d8",
+          "b7e7",
+          "i10i9",
+          "a1a2",
+          "d8d3",
+          "h3g3",
+          "c7c6"
+        ]
+      },
+      "elapsed_seconds": 0.02
+    },
+    {
+      "name": "differential/playout/makruk",
+      "passed": true,
+      "evidence": {
+        "variant": "makruk",
+        "plies": 12,
+        "moves": [
+          "d3d4",
+          "c8b7",
+          "h3h4",
+          "h8h7",
+          "c1b2",
+          "g8e7",
+          "f3f4",
+          "f6f5",
+          "b2c1",
+          "h6h5",
+          "e1f2",
+          "e7c8"
+        ]
+      },
+      "elapsed_seconds": 0.017
+    },
+    {
+      "name": "differential/playout/antichess",
+      "passed": true,
+      "evidence": {
+        "variant": "antichess",
+        "plies": 12,
+        "moves": [
+          "e2e4",
+          "d7d5",
+          "e4d5",
+          "d8d5",
+          "f2f4",
+          "d5a2",
+          "a1a2",
+          "a7a5",
+          "a2a5",
+          "a8a5",
+          "f4f5",
+          "a5f5"
+        ]
+      },
+      "elapsed_seconds": 0.015
+    },
+    {
+      "name": "differential/hybrid-off-search/chess",
+      "passed": true,
+      "evidence": {
+        "variant": "chess",
+        "position": "startpos",
+        "chess960": false,
+        "threads": 1,
+        "hash_mb": 16,
+        "hybrid": false,
+        "process_isolation": true,
+        "actual": {
+          "bestmove": "e2e4",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 123
+          },
+          "nodes": 217
+        },
+        "reference": {
+          "bestmove": "e2e4",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 123
+          },
+          "nodes": 217
+        },
+        "scope": "exact equality for this depth-limited fixture, not universal equivalence"
+      },
+      "elapsed_seconds": 0.539
+    },
+    {
+      "name": "differential/hybrid-off-search/fischerandom",
+      "passed": true,
+      "evidence": {
+        "variant": "fischerandom",
+        "position": "fen bqrbkrnn/pppppppp/8/8/8/8/PPPPPPPP/BQRBKRNN w CFcf - 0 1",
+        "chess960": true,
+        "threads": 1,
+        "hash_mb": 16,
+        "hybrid": false,
+        "process_isolation": true,
+        "actual": {
+          "bestmove": "b2b3",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 115
+          },
+          "nodes": 311
+        },
+        "reference": {
+          "bestmove": "b2b3",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 115
+          },
+          "nodes": 311
+        },
+        "scope": "exact equality for this depth-limited fixture, not universal equivalence"
+      },
+      "elapsed_seconds": 0.531
+    },
+    {
+      "name": "differential/hybrid-off-search/atomic",
+      "passed": true,
+      "evidence": {
+        "variant": "atomic",
+        "position": "startpos",
+        "chess960": false,
+        "threads": 1,
+        "hash_mb": 16,
+        "hybrid": false,
+        "process_isolation": true,
+        "actual": {
+          "bestmove": "d2d4",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 200
+          },
+          "nodes": 362
+        },
+        "reference": {
+          "bestmove": "d2d4",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 200
+          },
+          "nodes": 362
+        },
+        "scope": "exact equality for this depth-limited fixture, not universal equivalence"
+      },
+      "elapsed_seconds": 0.567
+    },
+    {
+      "name": "differential/hybrid-off-search/shogi",
+      "passed": true,
+      "evidence": {
+        "variant": "shogi",
+        "position": "startpos",
+        "chess960": false,
+        "threads": 1,
+        "hash_mb": 16,
+        "hybrid": false,
+        "process_isolation": true,
+        "actual": {
+          "bestmove": "c3c4",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 53
+          },
+          "nodes": 148
+        },
+        "reference": {
+          "bestmove": "c3c4",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 53
+          },
+          "nodes": 148
+        },
+        "scope": "exact equality for this depth-limited fixture, not universal equivalence"
+      },
+      "elapsed_seconds": 0.509
+    },
+    {
+      "name": "differential/hybrid-off-search/janggi",
+      "passed": true,
+      "evidence": {
+        "variant": "janggi",
+        "position": "startpos",
+        "chess960": false,
+        "threads": 1,
+        "hash_mb": 16,
+        "hybrid": false,
+        "process_isolation": true,
+        "actual": {
+          "bestmove": "b1c3",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 116
+          },
+          "nodes": 309
+        },
+        "reference": {
+          "bestmove": "b1c3",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 116
+          },
+          "nodes": 309
+        },
+        "scope": "exact equality for this depth-limited fixture, not universal equivalence"
+      },
+      "elapsed_seconds": 0.496
+    },
+    {
+      "name": "differential/hybrid-off-search/xiangqi",
+      "passed": true,
+      "evidence": {
+        "variant": "xiangqi",
+        "position": "startpos",
+        "chess960": false,
+        "threads": 1,
+        "hash_mb": 16,
+        "hybrid": false,
+        "process_isolation": true,
+        "actual": {
+          "bestmove": "b1c3",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 110
+          },
+          "nodes": 576
+        },
+        "reference": {
+          "bestmove": "b1c3",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 110
+          },
+          "nodes": 576
+        },
+        "scope": "exact equality for this depth-limited fixture, not universal equivalence"
+      },
+      "elapsed_seconds": 0.555
+    },
+    {
+      "name": "differential/hybrid-off-search/makruk",
+      "passed": true,
+      "evidence": {
+        "variant": "makruk",
+        "position": "startpos",
+        "chess960": false,
+        "threads": 1,
+        "hash_mb": 16,
+        "hybrid": false,
+        "process_isolation": true,
+        "actual": {
+          "bestmove": "b1d2",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 107
+          },
+          "nodes": 307
+        },
+        "reference": {
+          "bestmove": "b1d2",
+          "depth": 4,
+          "score": {
+            "unit": "cp",
+            "value": 107
+          },
+          "nodes": 307
+        },
+        "scope": "exact equality for this depth-limited fixture, not universal equivalence"
+      },
+      "elapsed_seconds": 0.491
+    }
+  ],
+  "identity": [
+    "id name Stockless Variants 0.1.0-dev (f985a5b187de) LB",
+    "id author Stockless Variants contributors; Stockless; Fabian Fichter and Stockfish developers"
+  ],
+  "advertised_variants": [
+    "3check",
+    "5check",
+    "ai-wok",
+    "almost",
+    "amazon",
+    "amazons",
+    "antichess",
+    "armageddon",
+    "asean",
+    "ataxx",
+    "atomar",
+    "atomic",
+    "berolina",
+    "breakthrough",
+    "bughouse",
+    "cambodian",
+    "capablanca",
+    "capahouse",
+    "caparandom",
+    "centaur",
+    "chancellor",
+    "chaturanga",
+    "checkshogi",
+    "chess",
+    "chessgi",
+    "chigorin",
+    "clobber",
+    "clobber10",
+    "codrus",
+    "coregal",
+    "courier",
+    "crazyhouse",
+    "dobutsu",
+    "dragon",
+    "duck",
+    "embassy",
+    "euroshogi",
+    "extinction",
+    "fairy",
+    "fischerandom",
+    "flipello",
+    "flipello10",
+    "flipersi",
+    "fox-and-hounds",
+    "gardner",
+    "georgian",
+    "giveaway",
+    "gorogoro",
+    "gothic",
+    "grand",
+    "grasshopper",
+    "gustav3",
+    "hoppelpoppel",
+    "horde",
+    "isolation",
+    "isolation7x7",
+    "janggi",
+    "janggicasual",
+    "janggimodern",
+    "janggitraditional",
+    "janus",
+    "jesonmor",
+    "joust",
+    "judkins",
+    "karouk",
+    "kinglet",
+    "kingofthehill",
+    "knightmate",
+    "koedem",
+    "kyotoshogi",
+    "legan",
+    "loop",
+    "losalamos",
+    "losers",
+    "makpong",
+    "makruk",
+    "manchu",
+    "micro",
+    "mini",
+    "minishogi",
+    "minixiangqi",
+    "misere",
+    "modern",
+    "newzealand",
+    "nightrider",
+    "nocastle",
+    "nocheckatomic",
+    "normal",
+    "okisakishogi",
+    "omicron",
+    "opulent",
+    "paradigm",
+    "pawnback",
+    "pawnsideways",
+    "perfect",
+    "petrified",
+    "placement",
+    "pocketknight",
+    "raazuvaa",
+    "racingkings",
+    "seirawan",
+    "shako",
+    "shatar",
+    "shatranj",
+    "shogi",
+    "shoshogi",
+    "shouse",
+    "sittuyin",
+    "snailtrail",
+    "sortofalmost",
+    "spartan",
+    "suicide",
+    "supply",
+    "tencubed",
+    "threekings",
+    "torishogi",
+    "torpedo",
+    "troitzky",
+    "wolf",
+    "xiangqi",
+    "yarishogi"
+  ],
+  "passed": 355,
+  "failed": 0,
+  "elapsed_seconds": 33.757,
+  "source_commit": "f985a5b187defbbac52c581a8518d96d3df69f46",
+  "working_tree_dirty_at_materialization": false
+}
