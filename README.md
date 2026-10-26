@@ -5,6 +5,7 @@
 This repository is independent of [Stockless](https://github.com/gaong5247-cmd/Stockless). It does not change that project's main branch or releases. Version `0.2.0-dev` adds an independent experimental SVNNUE-v1 runtime and CPU training tools to the first executable milestone. **It remains a development engine without strength certification or stable-release approval.**
 
 **[Download 0.2.0-dev builds](docs/DOWNLOADS.md)** ·
+[1.247M NNUE data, trained models and actual match results](docs/MEGA_NNUE_RESULTS.md) ·
 [Five trained NNUE models and actual results](docs/NNUE_RESULTS.md) ·
 [Recorded baseline validation](docs/VALIDATION.md) ·
 [Experimental NNUE and training](docs/NNUE.md) ·

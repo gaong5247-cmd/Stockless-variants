@@ -1,20 +1,23 @@
 # Real million-plus native NNUE data campaign
 
-**Target, not a result until the Actions jobs finish:** generate two separate
-1,024-game native-teacher datasets for each of chess, shogi, janggi, xiangqi,
-and makruk. This targets **10,240 genuinely generated games**. Every game can
-produce up to 152 labeled positions after eight randomized legal opening plies,
-with a 160-ply maximum and depth-4 classical teacher. The actual generated
-position total is measured from the manifests, never invented.
+**Verified result:** this campaign completed on 2026-10-26 at 11:32:08 UTC.
+The pipeline generated **10,240 native-teacher games, 1,247,386 labeled
+positions**, and retained **1,232,430 distinct NNUE inputs** after deduplication.
+All five per-variant model jobs, ten shard jobs and the final exact-count
+assertion completed successfully. Each game could run up to 160 plies with
+an eight-ply randomized legal opening and a depth-4 classical teacher.
+
+**[Full measured results, downloads, and NNUE-vs-Classical scores](MEGA_NNUE_RESULTS.md)**
+are kept separately from the planned workflow definition.
 
 [Full workflow](../.github/workflows/train-mega-nnue.yml) |
 [GitHub Actions results](https://github.com/gaong5247-cmd/Stockless-variants/actions/workflows/train-mega-nnue.yml)
 
-The pipeline first builds one pinned native teacher, uses it identically for
+The completed pipeline first built one pinned native teacher, uses it identically for
 ten independent datasets, and includes rich native-context version-2
 diagnostics with full data provenance. It does **not** treat context
 diagnostics as deployed v2 NNUE input features. Games that hit the move
-limit retain null results. Dataset artifact retention is 14 days.
+limit retain null results. The original Actions dataset artifacts expire after 14 days, but a separate checksum-verified [research prerelease](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/nnue-corpus-1.247m-20261026) now preserves the 10 shard archives and five checkpoint/model archives.
 
 Each variant then indexes two JSONL shards using bounded-memory SQLite,
 keeps whole-game train/validation/test partitions disjoint, and learns the
@@ -33,6 +36,4 @@ verified synthetic stress corpus for true generated data.
 This is large *supervised distillation* from a depth-4 classical search
 teacher, not reinforcement learning or Stockfish-strength training. The
 previous [120 paired games](NNUE_ADVANCED.md) showed that early neural models
-were generally much weaker than Classical. No Elo or strength gain is claimed
-without new paired matches against the resulting models, including censored
-games, openings, color assignment and confidence intervals.
+were generally much weaker than Classical. The new mega models were also tested in [240 matched games](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40318979116): NNUE scored 29 wins, 16 draws, 188 losses and seven censored games. Classical remained stronger. The experiment does not establish Elo gains.
