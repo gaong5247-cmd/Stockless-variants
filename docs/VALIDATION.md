@@ -1,5 +1,9 @@
 # Recorded validation of the first executable milestone
 
+For the subsequent `0.2.0-dev` builds and five workflow-trained neural models,
+see [NNUE_RESULTS.md](NNUE_RESULTS.md). The baseline record below is preserved
+with its original source, executable and counts.
+
 Recorded on **2026-10-26**. This is bounded engineering evidence for
 `0.1.0-dev`, not a stable-release approval, an Elo result or certification of
 every regional rule convention.

@@ -4,7 +4,8 @@
 
 This repository is independent of [Stockless](https://github.com/gaong5247-cmd/Stockless). It does not change that project's main branch or releases. Version `0.2.0-dev` adds an independent experimental SVNNUE-v1 runtime and CPU training tools to the first executable milestone. **It remains a development engine without strength certification or stable-release approval.**
 
-**[Previous 0.1.0-dev build artifacts](docs/DOWNLOADS.md)** ·
+**[Download 0.2.0-dev builds](docs/DOWNLOADS.md)** ·
+[Five trained NNUE models and actual results](docs/NNUE_RESULTS.md) ·
 [Recorded baseline validation](docs/VALIDATION.md) ·
 [Experimental NNUE and training](docs/NNUE.md) ·
 [Supported-rule inventory](docs/VARIANTS.md) ·
@@ -88,7 +89,7 @@ nnueeval
 go depth 4
 ```
 
-The five targets use separate models. Stockfish/FSF `.nnue` files, Chess960 mode and custom rule clones are outside SVNNUE-v1 compatibility. Its compact board/pocket features omit promoted-piece origin, castling/en-passant rights and rule/history counters; native rules still govern legal moves and game results. `Classical` remains the default, and no strength improvement or Elo is claimed. The training workflow's definition and any successful run must be distinguished by their recorded artifacts and reports.
+The five targets use separate models. Stockfish/FSF `.nnue` files, Chess960 mode and custom rule clones are outside SVNNUE-v1 compatibility. Its compact board/pocket features omit promoted-piece origin, castling/en-passant rights and rule/history counters; native rules still govern legal moves and game results. `Classical` remains the default, and no strength improvement or Elo is claimed. The [first completed workflow experiment](docs/NNUE_RESULTS.md) generated 11,016 positions across 160 games, trained five models and passed 340 trained-model native checks. Its actual limitations and downloads are recorded separately from the workflow definition.
 
 ### Custom variants
 
@@ -146,5 +147,7 @@ No Chess.com graphics, trademarks or private server code are included.
 이 저장소는 **FSF의 변형 규칙 코어에 실제 Stockless v0.9.0 탐색 정책을 연결한 첫 개발 버전**입니다. 장기·쇼기·샹치 등은 기존 규칙 구현을 활용하고, 기물 이동에 맞는 위협 신호와 탐색 깊이 조절을 추가합니다. 원본 Stockless 저장소와 정식 릴리스는 변경하지 않습니다.
 
 게임 목록은 실행 가능 여부와 검증 범위를 분리합니다. `0.2.0-dev`에는 체스·쇼기·장기·샹치·마크룩을 각각 별도 모델로 학습하는 CPU NumPy 파이프라인과 독립적인 SVNNUE-v1 추론·양자화·검증 기능을 추가했습니다. 기본 평가는 수작업 평가 함수이며, 모델을 명시적으로 불러와야 신경망 평가가 활성화됩니다. 학습 오차를 기력이나 Elo로 표현하지 않습니다.
+
+첫 GitHub Actions 실험에서 160대국·11,016포지션으로 5종 모델을 실제 학습했고, 학습 모델의 엔진 검사 340개를 통과했습니다. Windows/Linux 일반·AVX2와 Android ARM64의 5개 빌드도 성공했습니다. [모델 다운로드와 측정 결과](docs/NNUE_RESULTS.md)를 확인할 수 있습니다. Android는 교차 빌드 확인이며 실제 기기 검증은 남아 있습니다.
 
 4인 체스, 완전한 2보드 Bughouse, Fog of War, Spell Chess 및 GUI는 아직 구현되지 않았습니다. 기존 `0.1.0-dev` 다운로드와 검증 기록은 당시 빌드의 이력이며 새 모델의 검증 결과를 대신하지 않습니다.

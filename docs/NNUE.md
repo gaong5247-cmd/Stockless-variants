@@ -4,6 +4,8 @@ Version `0.2.0-dev` adds **SVNNUE-v1**, a separate trainable network format and 
 
 The default evaluator remains **Classical**. This is a small CPU training pipeline with actual parameter updates and quantized inference, not a playing-strength claim. A successful workflow means its numerical, data-integrity and runtime checks passed; it does not establish an Elo gain or approve a model for release.
 
+The [first completed five-variant workflow experiment](NNUE_RESULTS.md) includes actual measurements, compatible builds and model download links.
+
 ## Run an experiment in GitHub Actions
 
 Open [Train experimental variant NNUE](https://github.com/gaong5247-cmd/Stockless-variants/actions/workflows/train-nnue.yml), select **Run workflow**, and choose one variant or `all`.

@@ -1,0 +1,1166 @@
+{
+  "version": "0.2.0-dev",
+  "source_commit": "8aa329e240d2761f9a7ae9454a846be84388b016",
+  "runs": [
+    {
+      "id": 40303979765,
+      "head_sha": "8aa329e240d2761f9a7ae9454a846be84388b016",
+      "name": "Train experimental variant NNUE",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40303979765",
+      "created_at": "2026-10-26T10:00:24Z",
+      "updated_at": "2026-10-26T10:04:34Z",
+      "run_started_at": "2026-10-26T10:00:24Z"
+    },
+    {
+      "id": 40303979772,
+      "head_sha": "8aa329e240d2761f9a7ae9454a846be84388b016",
+      "name": "Build and validate Stockless Variants",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40303979772",
+      "created_at": "2026-10-26T10:00:24Z",
+      "updated_at": "2026-10-26T10:03:30Z",
+      "run_started_at": "2026-10-26T10:00:24Z"
+    }
+  ],
+  "training": [
+    {
+      "variant": "chess",
+      "descriptor": {
+        "feature_version": 1,
+        "format_version": 1,
+        "height": 8,
+        "hidden_dim": 64,
+        "input_dim": 780,
+        "qa": 256,
+        "qb": 64,
+        "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+        "supported": true,
+        "type_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          63
+        ],
+        "variant": "chess",
+        "width": 8
+      },
+      "game_count": 32,
+      "positions": 2199,
+      "completed_games": 4,
+      "truncated_games": 28,
+      "epochs": 40,
+      "gradient_steps": 520,
+      "selected_epoch": 2,
+      "training_seed": 20261026,
+      "limits": {
+        "games": 32,
+        "max_plies": 80,
+        "depth": 3,
+        "opening_plies": 8,
+        "command_timeout_seconds": 60
+      },
+      "retained_positions": {
+        "test": 257,
+        "train": 1581,
+        "validation": 360
+      },
+      "removed_duplicate_inputs": {
+        "test": 0,
+        "train": 1,
+        "validation": 0
+      },
+      "initial": {
+        "train": {
+          "mae_cp": 446.3981901008369,
+          "mse_cp2": 328262.93840248766,
+          "positions": 1581,
+          "rmse_cp": 572.9423517270194
+        },
+        "validation": {
+          "mae_cp": 392.61223544544646,
+          "mse_cp2": 256388.79779931763,
+          "positions": 360,
+          "rmse_cp": 506.34849441794296
+        }
+      },
+      "final_float": {
+        "test": {
+          "mae_cp": 454.46316951350946,
+          "mse_cp2": 373818.9024481429,
+          "positions": 257,
+          "rmse_cp": 611.4073130476465
+        },
+        "train": {
+          "mae_cp": 194.09361114598465,
+          "mse_cp2": 68038.00140424844,
+          "positions": 1581,
+          "rmse_cp": 260.84095039745665
+        },
+        "validation": {
+          "mae_cp": 377.7607445134057,
+          "mse_cp2": 226469.36136589307,
+          "positions": 360,
+          "rmse_cp": 475.88797144484863
+        }
+      },
+      "final_quantized": {
+        "test": {
+          "mae_cp": 454.67315175097275,
+          "mse_cp2": 373992.0894941634,
+          "positions": 257,
+          "rmse_cp": 611.548926492528
+        },
+        "validation": {
+          "mae_cp": 377.7388888888889,
+          "mse_cp2": 226384.81666666668,
+          "positions": 360,
+          "rmse_cp": 475.7991347897416
+        }
+      },
+      "test_train_mean_baseline": {
+        "mae_cp": 475.4226786394527,
+        "mse_cp2": 370634.2482398909,
+        "positions": 257,
+        "rmse_cp": 608.7973786407846
+      },
+      "validation_improved_from_initial": true,
+      "quantization_error": {
+        "test": {
+          "mae_cp": 0.9013969629191239,
+          "max_cp": 2.95819091796875,
+          "p99_cp": 2.62423828125
+        },
+        "validation": {
+          "mae_cp": 0.8154484166039361,
+          "max_cp": 2.594512939453125,
+          "p99_cp": 2.14586853027344
+        }
+      },
+      "quantization_limits": {
+        "mae_cp": 3.0,
+        "max_cp": 40.0,
+        "p99_cp": 20.0
+      },
+      "quantization_passed": true,
+      "runtime_checks": {
+        "passed": 68,
+        "failed": 0
+      },
+      "network_manifest": {
+        "checkpoint_sha256": "29d5db11ca2ebab9e6582b15106b73be56e53b2aba2162198c2a99a823bff5bf",
+        "dataset_manifest_sha256": "6d391a51f14a47d606d04adb1aa826ae0713dc5af44f732ef3fdf25ec4453af9",
+        "default_enabled": false,
+        "descriptor": {
+          "feature_version": 1,
+          "format_version": 1,
+          "height": 8,
+          "hidden_dim": 64,
+          "input_dim": 780,
+          "qa": 256,
+          "qb": 64,
+          "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+          "supported": true,
+          "type_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            63
+          ],
+          "variant": "chess",
+          "width": 8
+        },
+        "format": "SVNNUE-v1",
+        "license": "AGPL-3.0-only",
+        "metrics_sha256": "f22e09364e494ec4066f68a5348f78badaf8a352c24b1cdf5713e02e4ffb7550",
+        "network": "chess.svnnue",
+        "network_bytes": 100520,
+        "network_sha256": "9919dcdfa72423d8a735326f96f9f1ef205b2bce6cfafec9c3516cde69c03310",
+        "quantization_passed": true,
+        "schema": 1,
+        "selected_epoch": 2,
+        "source_repository": "https://github.com/gaong5247-cmd/Stockless-variants",
+        "split_sha256": "2f68303006e663230bb4a4f50ba07bbc9a4691a4213e3e95b28b62a211ee5788",
+        "status": "experimental",
+        "strength_validated": false,
+        "teacher": {
+          "bound_policy": "last exact main-PV score at highest completed depth; otherwise skip position",
+          "claim_policy": "claim_all_native_optional",
+          "engine_id": "Stockless Variants 0.2.0-dev (8aa329e240d2) LB",
+          "engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+          "evaluation": "classical",
+          "insufficient_material_adjudication": false,
+          "label_cp_limit": 10000,
+          "label_perspective": "white",
+          "mate_target": "signed label_cp_limit; raw distance retained",
+          "options": {
+            "EvalBackend": "Classical",
+            "Hash": 16,
+            "MultiPV": 1,
+            "StocklessHybrid": true,
+            "Threads": 1,
+            "UCI_Chess960": false,
+            "UCI_Variant": "chess",
+            "Use NNUE": false
+          },
+          "protocol": "UCI",
+          "score_cp_definition": "native Value * 100 / 208; not variant pawn units",
+          "score_perspective": "side_to_move",
+          "source_commit": "8aa329e240d2761f9a7ae9454a846be84388b016",
+          "source_working_tree_dirty": false
+        },
+        "teacher_engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+        "trainer_version": "svnnue-numpy-adam-v1",
+        "training_seed": 20261026
+      },
+      "runtime_environment": {
+        "numpy": "2.3.5",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.12.15",
+        "threads": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        }
+      },
+      "label_clip_cp": 2000.0,
+      "clipped_label_rows": 18
+    },
+    {
+      "variant": "janggi",
+      "descriptor": {
+        "feature_version": 1,
+        "format_version": 1,
+        "height": 10,
+        "hidden_dim": 64,
+        "input_dim": 1274,
+        "qa": 256,
+        "qb": 64,
+        "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+        "supported": true,
+        "type_ids": [
+          4,
+          28,
+          29,
+          30,
+          32,
+          34,
+          63
+        ],
+        "variant": "janggi",
+        "width": 9
+      },
+      "game_count": 32,
+      "positions": 2116,
+      "completed_games": 8,
+      "truncated_games": 24,
+      "epochs": 40,
+      "gradient_steps": 480,
+      "selected_epoch": 12,
+      "training_seed": 20261026,
+      "limits": {
+        "games": 32,
+        "max_plies": 80,
+        "depth": 3,
+        "opening_plies": 8,
+        "command_timeout_seconds": 60
+      },
+      "retained_positions": {
+        "test": 339,
+        "train": 1415,
+        "validation": 349
+      },
+      "removed_duplicate_inputs": {
+        "test": 2,
+        "train": 9,
+        "validation": 2
+      },
+      "initial": {
+        "train": {
+          "mae_cp": 439.1405088556108,
+          "mse_cp2": 379303.60182650713,
+          "positions": 1415,
+          "rmse_cp": 615.8762877611924
+        },
+        "validation": {
+          "mae_cp": 697.7154142494529,
+          "mse_cp2": 789446.4210873039,
+          "positions": 349,
+          "rmse_cp": 888.5079746897626
+        }
+      },
+      "final_float": {
+        "test": {
+          "mae_cp": 444.732569354122,
+          "mse_cp2": 403498.7052749558,
+          "positions": 339,
+          "rmse_cp": 635.2154794043953
+        },
+        "train": {
+          "mae_cp": 92.02424689249099,
+          "mse_cp2": 16024.430192749025,
+          "positions": 1415,
+          "rmse_cp": 126.58763838838698
+        },
+        "validation": {
+          "mae_cp": 609.6941889896775,
+          "mse_cp2": 701129.7433966455,
+          "positions": 349,
+          "rmse_cp": 837.3349051584112
+        }
+      },
+      "final_quantized": {
+        "test": {
+          "mae_cp": 444.87610619469024,
+          "mse_cp2": 403385.18879056047,
+          "positions": 339,
+          "rmse_cp": 635.1261203812676
+        },
+        "validation": {
+          "mae_cp": 609.6074498567335,
+          "mse_cp2": 701574.776504298,
+          "positions": 349,
+          "rmse_cp": 837.6006067955645
+        }
+      },
+      "test_train_mean_baseline": {
+        "mae_cp": 480.92946550487414,
+        "mse_cp2": 525849.1014498208,
+        "positions": 339,
+        "rmse_cp": 725.1545362540462
+      },
+      "validation_improved_from_initial": true,
+      "quantization_error": {
+        "test": {
+          "mae_cp": 1.045159849093727,
+          "max_cp": 4.134368896484375,
+          "p99_cp": 3.3792846679687507
+        },
+        "validation": {
+          "mae_cp": 1.051217284106935,
+          "max_cp": 3.83837890625,
+          "p99_cp": 3.4992382812499985
+        }
+      },
+      "quantization_limits": {
+        "mae_cp": 3.0,
+        "max_cp": 40.0,
+        "p99_cp": 20.0
+      },
+      "quantization_passed": true,
+      "runtime_checks": {
+        "passed": 68,
+        "failed": 0
+      },
+      "network_manifest": {
+        "checkpoint_sha256": "b90fb3ebf193627e283221b8b71988f3ccb4091108af384a7d6e5a803196126a",
+        "dataset_manifest_sha256": "6397e34d9fe5c66433449b872e428c7771afcc5538d069101356140ca75152c8",
+        "default_enabled": false,
+        "descriptor": {
+          "feature_version": 1,
+          "format_version": 1,
+          "height": 10,
+          "hidden_dim": 64,
+          "input_dim": 1274,
+          "qa": 256,
+          "qb": 64,
+          "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+          "supported": true,
+          "type_ids": [
+            4,
+            28,
+            29,
+            30,
+            32,
+            34,
+            63
+          ],
+          "variant": "janggi",
+          "width": 9
+        },
+        "format": "SVNNUE-v1",
+        "license": "AGPL-3.0-only",
+        "metrics_sha256": "f22e680059993702a1673e73135d121afd87d9aaec8f22082e467be0bcca0045",
+        "network": "janggi.svnnue",
+        "network_bytes": 163752,
+        "network_sha256": "1dcf7c5f723d4b9557379498fa286206af68ed4c380ce74644c399a9bff49bab",
+        "quantization_passed": true,
+        "schema": 1,
+        "selected_epoch": 12,
+        "source_repository": "https://github.com/gaong5247-cmd/Stockless-variants",
+        "split_sha256": "7f739f760190623482a7afda66b5134f7c06bdc7f361d42dfd1c9fbb9caa5cbf",
+        "status": "experimental",
+        "strength_validated": false,
+        "teacher": {
+          "bound_policy": "last exact main-PV score at highest completed depth; otherwise skip position",
+          "claim_policy": "claim_all_native_optional",
+          "engine_id": "Stockless Variants 0.2.0-dev (8aa329e240d2) LB",
+          "engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+          "evaluation": "classical",
+          "insufficient_material_adjudication": false,
+          "label_cp_limit": 10000,
+          "label_perspective": "white",
+          "mate_target": "signed label_cp_limit; raw distance retained",
+          "options": {
+            "EvalBackend": "Classical",
+            "Hash": 16,
+            "MultiPV": 1,
+            "StocklessHybrid": true,
+            "Threads": 1,
+            "UCI_Chess960": false,
+            "UCI_Variant": "janggi",
+            "Use NNUE": false
+          },
+          "protocol": "UCI",
+          "score_cp_definition": "native Value * 100 / 208; not variant pawn units",
+          "score_perspective": "side_to_move",
+          "source_commit": "8aa329e240d2761f9a7ae9454a846be84388b016",
+          "source_working_tree_dirty": false
+        },
+        "teacher_engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+        "trainer_version": "svnnue-numpy-adam-v1",
+        "training_seed": 20261026
+      },
+      "runtime_environment": {
+        "numpy": "2.3.5",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.12.15",
+        "threads": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        }
+      },
+      "label_clip_cp": 2000.0,
+      "clipped_label_rows": 45
+    },
+    {
+      "variant": "makruk",
+      "descriptor": {
+        "feature_version": 1,
+        "format_version": 1,
+        "height": 8,
+        "hidden_dim": 64,
+        "input_dim": 780,
+        "qa": 256,
+        "qb": 64,
+        "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+        "supported": true,
+        "type_ids": [
+          1,
+          2,
+          4,
+          6,
+          9,
+          63
+        ],
+        "variant": "makruk",
+        "width": 8
+      },
+      "game_count": 32,
+      "positions": 2304,
+      "completed_games": 0,
+      "truncated_games": 32,
+      "epochs": 40,
+      "gradient_steps": 520,
+      "selected_epoch": 10,
+      "training_seed": 20261026,
+      "limits": {
+        "games": 32,
+        "max_plies": 80,
+        "depth": 3,
+        "opening_plies": 8,
+        "command_timeout_seconds": 60
+      },
+      "retained_positions": {
+        "test": 360,
+        "train": 1566,
+        "validation": 356
+      },
+      "removed_duplicate_inputs": {
+        "test": 0,
+        "train": 18,
+        "validation": 4
+      },
+      "initial": {
+        "train": {
+          "mae_cp": 186.53880313956114,
+          "mse_cp2": 66008.62659622994,
+          "positions": 1566,
+          "rmse_cp": 256.92144051485843
+        },
+        "validation": {
+          "mae_cp": 182.0313959068127,
+          "mse_cp2": 69459.271105949,
+          "positions": 356,
+          "rmse_cp": 263.5512684582432
+        }
+      },
+      "final_float": {
+        "test": {
+          "mae_cp": 319.04030951393975,
+          "mse_cp2": 240733.05699570102,
+          "positions": 360,
+          "rmse_cp": 490.6455512849383
+        },
+        "train": {
+          "mae_cp": 50.398526991311925,
+          "mse_cp2": 5934.106470934355,
+          "positions": 1566,
+          "rmse_cp": 77.03315176555061
+        },
+        "validation": {
+          "mae_cp": 159.57620495624758,
+          "mse_cp2": 52717.059854460495,
+          "positions": 356,
+          "rmse_cp": 229.60195960500968
+        }
+      },
+      "final_quantized": {
+        "test": {
+          "mae_cp": 319.00555555555553,
+          "mse_cp2": 240705.88888888888,
+          "positions": 360,
+          "rmse_cp": 490.61786442086355
+        },
+        "validation": {
+          "mae_cp": 159.6573033707865,
+          "mse_cp2": 52777.168539325845,
+          "positions": 356,
+          "rmse_cp": 229.7328199002612
+        }
+      },
+      "test_train_mean_baseline": {
+        "mae_cp": 317.9822653240628,
+        "mse_cp2": 273357.6378584134,
+        "positions": 360,
+        "rmse_cp": 522.8361481940718
+      },
+      "validation_improved_from_initial": true,
+      "quantization_error": {
+        "test": {
+          "mae_cp": 0.5398445659213595,
+          "max_cp": 1.8574142456054688,
+          "p99_cp": 1.564157333374025
+        },
+        "validation": {
+          "mae_cp": 0.5607245611340812,
+          "max_cp": 2.5182418823242188,
+          "p99_cp": 2.025613403320312
+        }
+      },
+      "quantization_limits": {
+        "mae_cp": 3.0,
+        "max_cp": 40.0,
+        "p99_cp": 20.0
+      },
+      "quantization_passed": true,
+      "runtime_checks": {
+        "passed": 68,
+        "failed": 0
+      },
+      "network_manifest": {
+        "checkpoint_sha256": "1953b57b9b71e7ee4aaebc8396b786391116fe8f759829bb00f2763b0b4d3335",
+        "dataset_manifest_sha256": "d1eb9abe34af73a1bdf1764864b78aa7a1bd87717bb60d0eeb633dd6cc26df53",
+        "default_enabled": false,
+        "descriptor": {
+          "feature_version": 1,
+          "format_version": 1,
+          "height": 8,
+          "hidden_dim": 64,
+          "input_dim": 780,
+          "qa": 256,
+          "qb": 64,
+          "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+          "supported": true,
+          "type_ids": [
+            1,
+            2,
+            4,
+            6,
+            9,
+            63
+          ],
+          "variant": "makruk",
+          "width": 8
+        },
+        "format": "SVNNUE-v1",
+        "license": "AGPL-3.0-only",
+        "metrics_sha256": "22b540bdead979f3bf5f725829081f7148231bdfc719acf8c91c707a7623e37a",
+        "network": "makruk.svnnue",
+        "network_bytes": 100520,
+        "network_sha256": "ec26d93a485b923a7ec12a307af76c429695e8049c2c6f9ab3b4745a5ed85648",
+        "quantization_passed": true,
+        "schema": 1,
+        "selected_epoch": 10,
+        "source_repository": "https://github.com/gaong5247-cmd/Stockless-variants",
+        "split_sha256": "c0d125ae62320c229c6f3005a2baf035730b6d0d1ec634a706120d80c40d28c2",
+        "status": "experimental",
+        "strength_validated": false,
+        "teacher": {
+          "bound_policy": "last exact main-PV score at highest completed depth; otherwise skip position",
+          "claim_policy": "claim_all_native_optional",
+          "engine_id": "Stockless Variants 0.2.0-dev (8aa329e240d2) LB",
+          "engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+          "evaluation": "classical",
+          "insufficient_material_adjudication": false,
+          "label_cp_limit": 10000,
+          "label_perspective": "white",
+          "mate_target": "signed label_cp_limit; raw distance retained",
+          "options": {
+            "EvalBackend": "Classical",
+            "Hash": 16,
+            "MultiPV": 1,
+            "StocklessHybrid": true,
+            "Threads": 1,
+            "UCI_Chess960": false,
+            "UCI_Variant": "makruk",
+            "Use NNUE": false
+          },
+          "protocol": "UCI",
+          "score_cp_definition": "native Value * 100 / 208; not variant pawn units",
+          "score_perspective": "side_to_move",
+          "source_commit": "8aa329e240d2761f9a7ae9454a846be84388b016",
+          "source_working_tree_dirty": false
+        },
+        "teacher_engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+        "trainer_version": "svnnue-numpy-adam-v1",
+        "training_seed": 20261026
+      },
+      "runtime_environment": {
+        "numpy": "2.3.5",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.12.15",
+        "threads": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        }
+      },
+      "label_clip_cp": 2000.0,
+      "clipped_label_rows": 1
+    },
+    {
+      "variant": "shogi",
+      "descriptor": {
+        "feature_version": 1,
+        "format_version": 1,
+        "height": 9,
+        "hidden_dim": 64,
+        "input_dim": 1640,
+        "qa": 256,
+        "qb": 64,
+        "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+        "supported": true,
+        "type_ids": [
+          3,
+          4,
+          9,
+          11,
+          19,
+          20,
+          21,
+          22,
+          23,
+          63
+        ],
+        "variant": "shogi",
+        "width": 9
+      },
+      "game_count": 32,
+      "positions": 2255,
+      "completed_games": 3,
+      "truncated_games": 29,
+      "epochs": 40,
+      "gradient_steps": 520,
+      "selected_epoch": 36,
+      "training_seed": 20261026,
+      "limits": {
+        "games": 32,
+        "max_plies": 80,
+        "depth": 3,
+        "opening_plies": 8,
+        "command_timeout_seconds": 60
+      },
+      "retained_positions": {
+        "test": 360,
+        "train": 1570,
+        "validation": 315
+      },
+      "removed_duplicate_inputs": {
+        "test": 0,
+        "train": 10,
+        "validation": 0
+      },
+      "initial": {
+        "train": {
+          "mae_cp": 435.0393208740623,
+          "mse_cp2": 371091.39384794736,
+          "positions": 1570,
+          "rmse_cp": 609.1727126586903
+        },
+        "validation": {
+          "mae_cp": 497.9927187722827,
+          "mse_cp2": 390479.54259215645,
+          "positions": 315,
+          "rmse_cp": 624.8836232388848
+        }
+      },
+      "final_float": {
+        "test": {
+          "mae_cp": 535.7742878807916,
+          "mse_cp2": 590325.0389134468,
+          "positions": 360,
+          "rmse_cp": 768.326127964842
+        },
+        "train": {
+          "mae_cp": 43.00213138798999,
+          "mse_cp2": 4268.455717930931,
+          "positions": 1570,
+          "rmse_cp": 65.33341960995867
+        },
+        "validation": {
+          "mae_cp": 331.26299726698136,
+          "mse_cp2": 217056.61309518837,
+          "positions": 315,
+          "rmse_cp": 465.8933494858972
+        }
+      },
+      "final_quantized": {
+        "test": {
+          "mae_cp": 535.6194444444444,
+          "mse_cp2": 590053.3861111111,
+          "positions": 360,
+          "rmse_cp": 768.1493253991122
+        },
+        "validation": {
+          "mae_cp": 331.0984126984127,
+          "mse_cp2": 216966.61587301586,
+          "positions": 315,
+          "rmse_cp": 465.79675382404275
+        }
+      },
+      "test_train_mean_baseline": {
+        "mae_cp": 586.5283315022787,
+        "mse_cp2": 684953.9641501589,
+        "positions": 360,
+        "rmse_cp": 827.619456121084
+      },
+      "validation_improved_from_initial": true,
+      "quantization_error": {
+        "test": {
+          "mae_cp": 1.066096962822808,
+          "max_cp": 5.2635498046875,
+          "p99_cp": 3.9285452270507846
+        },
+        "validation": {
+          "mae_cp": 1.095629616389199,
+          "max_cp": 4.248199462890625,
+          "p99_cp": 3.5521826171875026
+        }
+      },
+      "quantization_limits": {
+        "mae_cp": 3.0,
+        "max_cp": 40.0,
+        "p99_cp": 20.0
+      },
+      "quantization_passed": true,
+      "runtime_checks": {
+        "passed": 68,
+        "failed": 0
+      },
+      "network_manifest": {
+        "checkpoint_sha256": "31a43cfa1e0ea028ca877917e6a15a0d3dd8ddd61a7973bdd9071583bb59721c",
+        "dataset_manifest_sha256": "610b404d3501a5c43412c51be1290b739a738050bfb423275ebbb63f407a3685",
+        "default_enabled": false,
+        "descriptor": {
+          "feature_version": 1,
+          "format_version": 1,
+          "height": 9,
+          "hidden_dim": 64,
+          "input_dim": 1640,
+          "qa": 256,
+          "qb": 64,
+          "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+          "supported": true,
+          "type_ids": [
+            3,
+            4,
+            9,
+            11,
+            19,
+            20,
+            21,
+            22,
+            23,
+            63
+          ],
+          "variant": "shogi",
+          "width": 9
+        },
+        "format": "SVNNUE-v1",
+        "license": "AGPL-3.0-only",
+        "metrics_sha256": "fe24dd07a82f288cf10459ab0da5d29cdc01652f7672495aafeb9c97e47938f3",
+        "network": "shogi.svnnue",
+        "network_bytes": 210600,
+        "network_sha256": "e475d308eb9f3f0c401ce0bea55e6093fb0e61032eef8673c34efb287233b294",
+        "quantization_passed": true,
+        "schema": 1,
+        "selected_epoch": 36,
+        "source_repository": "https://github.com/gaong5247-cmd/Stockless-variants",
+        "split_sha256": "3b92c1df27b1986131a4a237cc2d53199194a72f1459bf83f368a061ecd90692",
+        "status": "experimental",
+        "strength_validated": false,
+        "teacher": {
+          "bound_policy": "last exact main-PV score at highest completed depth; otherwise skip position",
+          "claim_policy": "claim_all_native_optional",
+          "engine_id": "Stockless Variants 0.2.0-dev (8aa329e240d2) LB",
+          "engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+          "evaluation": "classical",
+          "insufficient_material_adjudication": false,
+          "label_cp_limit": 10000,
+          "label_perspective": "white",
+          "mate_target": "signed label_cp_limit; raw distance retained",
+          "options": {
+            "EvalBackend": "Classical",
+            "Hash": 16,
+            "MultiPV": 1,
+            "StocklessHybrid": true,
+            "Threads": 1,
+            "UCI_Chess960": false,
+            "UCI_Variant": "shogi",
+            "Use NNUE": false
+          },
+          "protocol": "UCI",
+          "score_cp_definition": "native Value * 100 / 208; not variant pawn units",
+          "score_perspective": "side_to_move",
+          "source_commit": "8aa329e240d2761f9a7ae9454a846be84388b016",
+          "source_working_tree_dirty": false
+        },
+        "teacher_engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+        "trainer_version": "svnnue-numpy-adam-v1",
+        "training_seed": 20261026
+      },
+      "runtime_environment": {
+        "numpy": "2.3.5",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.12.15",
+        "threads": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        }
+      },
+      "label_clip_cp": 2000.0,
+      "clipped_label_rows": 54
+    },
+    {
+      "variant": "xiangqi",
+      "descriptor": {
+        "feature_version": 1,
+        "format_version": 1,
+        "height": 10,
+        "hidden_dim": 64,
+        "input_dim": 1274,
+        "qa": 256,
+        "qb": 64,
+        "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+        "supported": true,
+        "type_ids": [
+          4,
+          6,
+          27,
+          29,
+          30,
+          31,
+          63
+        ],
+        "variant": "xiangqi",
+        "width": 9
+      },
+      "game_count": 32,
+      "positions": 2142,
+      "completed_games": 7,
+      "truncated_games": 25,
+      "epochs": 40,
+      "gradient_steps": 480,
+      "selected_epoch": 1,
+      "training_seed": 20261026,
+      "limits": {
+        "games": 32,
+        "max_plies": 80,
+        "depth": 3,
+        "opening_plies": 8,
+        "command_timeout_seconds": 60
+      },
+      "retained_positions": {
+        "test": 359,
+        "train": 1467,
+        "validation": 310
+      },
+      "removed_duplicate_inputs": {
+        "test": 1,
+        "train": 4,
+        "validation": 1
+      },
+      "initial": {
+        "train": {
+          "mae_cp": 442.35159109917805,
+          "mse_cp2": 387748.7394420418,
+          "positions": 1467,
+          "rmse_cp": 622.694740175346
+        },
+        "validation": {
+          "mae_cp": 320.11468964853594,
+          "mse_cp2": 237840.35628849466,
+          "positions": 310,
+          "rmse_cp": 487.68879040684817
+        }
+      },
+      "final_float": {
+        "test": {
+          "mae_cp": 346.6805043765097,
+          "mse_cp2": 245872.60261879803,
+          "positions": 359,
+          "rmse_cp": 495.8554251178442
+        },
+        "train": {
+          "mae_cp": 325.3058737200299,
+          "mse_cp2": 223782.7456905577,
+          "positions": 1467,
+          "rmse_cp": 473.0568102147539
+        },
+        "validation": {
+          "mae_cp": 346.4578009466971,
+          "mse_cp2": 245888.15344409636,
+          "positions": 310,
+          "rmse_cp": 495.8711056757556
+        }
+      },
+      "final_quantized": {
+        "test": {
+          "mae_cp": 346.7548746518106,
+          "mse_cp2": 246044.57660167132,
+          "positions": 359,
+          "rmse_cp": 496.0288062216461
+        },
+        "validation": {
+          "mae_cp": 346.36129032258066,
+          "mse_cp2": 245786.78064516129,
+          "positions": 310,
+          "rmse_cp": 495.76887825393123
+        }
+      },
+      "test_train_mean_baseline": {
+        "mae_cp": 354.36015742734946,
+        "mse_cp2": 278011.4485939188,
+        "positions": 359,
+        "rmse_cp": 527.2679096947953
+      },
+      "validation_improved_from_initial": false,
+      "quantization_error": {
+        "test": {
+          "mae_cp": 0.47655789898630635,
+          "max_cp": 1.9125823974609375,
+          "p99_cp": 1.5719512939453135
+        },
+        "validation": {
+          "mae_cp": 0.45812677414186537,
+          "max_cp": 1.529754638671875,
+          "p99_cp": 1.3552700805664064
+        }
+      },
+      "quantization_limits": {
+        "mae_cp": 3.0,
+        "max_cp": 40.0,
+        "p99_cp": 20.0
+      },
+      "quantization_passed": true,
+      "runtime_checks": {
+        "passed": 68,
+        "failed": 0
+      },
+      "network_manifest": {
+        "checkpoint_sha256": "690d6958cf9a6adb960a2c3a8760062570e1e6ad8916d94b2d957cd73dbcde4f",
+        "dataset_manifest_sha256": "cbbb82a9da64d8b175d9f0b92988733ac62b107236a48ca7eb6355e7367a9ca2",
+        "default_enabled": false,
+        "descriptor": {
+          "feature_version": 1,
+          "format_version": 1,
+          "height": 10,
+          "hidden_dim": 64,
+          "input_dim": 1274,
+          "qa": 256,
+          "qb": 64,
+          "rules_sha256": "055c294375a75423b80622757ed77a29175c76f33f66107ac223fb8da056e736",
+          "supported": true,
+          "type_ids": [
+            4,
+            6,
+            27,
+            29,
+            30,
+            31,
+            63
+          ],
+          "variant": "xiangqi",
+          "width": 9
+        },
+        "format": "SVNNUE-v1",
+        "license": "AGPL-3.0-only",
+        "metrics_sha256": "67a42e879ed8dec4b8cef01ff07bf41364310a2564547c41afe1f21e2ced5bc6",
+        "network": "xiangqi.svnnue",
+        "network_bytes": 163752,
+        "network_sha256": "16b4b1d49977d70c6baf720a34bc8a813191aa408916e449f7e0eb729f49511e",
+        "quantization_passed": true,
+        "schema": 1,
+        "selected_epoch": 1,
+        "source_repository": "https://github.com/gaong5247-cmd/Stockless-variants",
+        "split_sha256": "385db8b2a53cecfb5220b7781fae928e14ca916254ba672aeaea3f753cb9339c",
+        "status": "experimental",
+        "strength_validated": false,
+        "teacher": {
+          "bound_policy": "last exact main-PV score at highest completed depth; otherwise skip position",
+          "claim_policy": "claim_all_native_optional",
+          "engine_id": "Stockless Variants 0.2.0-dev (8aa329e240d2) LB",
+          "engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+          "evaluation": "classical",
+          "insufficient_material_adjudication": false,
+          "label_cp_limit": 10000,
+          "label_perspective": "white",
+          "mate_target": "signed label_cp_limit; raw distance retained",
+          "options": {
+            "EvalBackend": "Classical",
+            "Hash": 16,
+            "MultiPV": 1,
+            "StocklessHybrid": true,
+            "Threads": 1,
+            "UCI_Chess960": false,
+            "UCI_Variant": "xiangqi",
+            "Use NNUE": false
+          },
+          "protocol": "UCI",
+          "score_cp_definition": "native Value * 100 / 208; not variant pawn units",
+          "score_perspective": "side_to_move",
+          "source_commit": "8aa329e240d2761f9a7ae9454a846be84388b016",
+          "source_working_tree_dirty": false
+        },
+        "teacher_engine_sha256": "2f390fa4652878b661ad68bd11944c07ec1610c4e1b57ac85dfd38f352aa0242",
+        "trainer_version": "svnnue-numpy-adam-v1",
+        "training_seed": 20261026
+      },
+      "runtime_environment": {
+        "numpy": "2.3.5",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.12.15",
+        "threads": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        }
+      },
+      "label_clip_cp": 2000.0,
+      "clipped_label_rows": 33
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 12641956813,
+      "name": "nnue-chess-8aa329e240d2761f9a7ae9454a846be84388b016-1",
+      "size_in_bytes": 1638338,
+      "created_at": "2026-10-26T10:02:34Z",
+      "expires_at": "2026-11-25T10:02:33Z",
+      "sha256": "ff01f19a0806d5562250d1d442270ac43925badf89cd7020e6e9544ad69cd218",
+      "kind": "training_artifacts"
+    },
+    {
+      "id": 12641588208,
+      "name": "nnue-janggi-8aa329e240d2761f9a7ae9454a846be84388b016-1",
+      "size_in_bytes": 1749070,
+      "created_at": "2026-10-26T10:02:31Z",
+      "expires_at": "2026-11-25T10:02:29Z",
+      "sha256": "6e9faa88da20aea6d4c3598fb5dc4538bfa38916ace78372bc96f3fdab7366c0",
+      "kind": "training_artifacts"
+    },
+    {
+      "id": 12641523242,
+      "name": "nnue-makruk-8aa329e240d2761f9a7ae9454a846be84388b016-1",
+      "size_in_bytes": 1631497,
+      "created_at": "2026-10-26T10:04:32Z",
+      "expires_at": "2026-11-25T10:04:31Z",
+      "sha256": "a4ef5fffdd4708cdf5ffad207ff253894cfc9c34d5609a94eed0dee52602d451",
+      "kind": "training_artifacts"
+    },
+    {
+      "id": 12640984271,
+      "name": "nnue-xiangqi-8aa329e240d2761f9a7ae9454a846be84388b016-1",
+      "size_in_bytes": 1768265,
+      "created_at": "2026-10-26T10:04:16Z",
+      "expires_at": "2026-11-25T10:04:16Z",
+      "sha256": "ac3c83bcdfec3b2f7deb64d1294c2d2a547444e0b6688fbc00b3c176d2f26c04",
+      "kind": "training_artifacts"
+    },
+    {
+      "id": 12640814306,
+      "name": "nnue-shogi-8aa329e240d2761f9a7ae9454a846be84388b016-1",
+      "size_in_bytes": 1869630,
+      "created_at": "2026-10-26T10:02:15Z",
+      "expires_at": "2026-11-25T10:02:13Z",
+      "sha256": "5703103a18ed9c45768dc3608417c8510997278667d180fc7ada1ca6d0e10878",
+      "kind": "training_artifacts"
+    },
+    {
+      "id": 12641907203,
+      "name": "stockless-variants-windows-x86-64",
+      "size_in_bytes": 1929551,
+      "created_at": "2026-10-26T10:03:17Z",
+      "expires_at": "2027-01-24T10:00:24Z",
+      "sha256": "6ffc109b681db6628b1e8904b5f0d179cbb99dcef27de37a71567bc8eef6f880",
+      "kind": "build_artifacts"
+    },
+    {
+      "id": 12641737790,
+      "name": "stockless-variants-linux-x86-64-avx2",
+      "size_in_bytes": 1248960,
+      "created_at": "2026-10-26T10:02:38Z",
+      "expires_at": "2027-01-24T10:00:24Z",
+      "sha256": "63829970e93fac7951ea935dd6c2c32ae87569ea32a712ce6b4d7d78191b7349",
+      "kind": "build_artifacts"
+    },
+    {
+      "id": 12641682954,
+      "name": "stockless-variants-android-arm64",
+      "size_in_bytes": 1433491,
+      "created_at": "2026-10-26T10:01:44Z",
+      "expires_at": "2027-01-24T10:00:24Z",
+      "sha256": "90611353bebeb9336063466b9f81c4e4cd3b7ae7eb16759f951860984de53f2e",
+      "kind": "build_artifacts"
+    },
+    {
+      "id": 12641124362,
+      "name": "stockless-variants-linux-x86-64",
+      "size_in_bytes": 1242100,
+      "created_at": "2026-10-26T10:02:31Z",
+      "expires_at": "2027-01-24T10:00:24Z",
+      "sha256": "78e1bd1fc37a1de6b4c147ff86be760e305816258e8241fc68867a7aa84a7a44",
+      "kind": "build_artifacts"
+    },
+    {
+      "id": 12640784007,
+      "name": "stockless-variants-windows-x86-64-avx2",
+      "size_in_bytes": 1950115,
+      "created_at": "2026-10-26T10:03:24Z",
+      "expires_at": "2027-01-24T10:00:24Z",
+      "sha256": "6339fd2907ba2f5f605cd6e84d373f1ec3c041ce13e7eaf4857e0a25a3e76bbb",
+      "kind": "build_artifacts"
+    }
+  ],
+  "strength_validated": false,
+  "elo": null
+}

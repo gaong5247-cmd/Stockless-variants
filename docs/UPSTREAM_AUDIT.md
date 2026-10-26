@@ -98,7 +98,8 @@ and history/counters; the full native rule state still controls legal moves and
 results. The network is an experimental evaluator, with no implied inheritance
 of Stockless's chess strength. See [NNUE.md](NNUE.md) for the current format and
 experiment evidence. This addition does not retroactively change baseline
-test counts or establish a successful remote training run.
+test counts. The [first successful remote experiment](NNUE_RESULTS.md) is
+recorded with its own code, data, model and validation identities.
 
 UCI/UCCI/USI commands that mutate a position, rule table, hash, or thread setting
 stop and join an active search first. Full FEN/SFEN plus move sequences are
