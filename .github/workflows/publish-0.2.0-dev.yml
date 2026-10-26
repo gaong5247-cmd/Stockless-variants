@@ -1,0 +1,151 @@
+name: Publish Stockless Variants 0.2.0-dev release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-0.2.0-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: stockless-variants-v0.2.0-dev-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'gaong5247-cmd/Stockless-variants'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the exact successful source build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run="repos/gaong5247-cmd/Stockless-variants/actions/runs/40303979772"
+          test "$(gh api "$run" --jq '.conclusion')" = success
+          test "$(gh api "$run" --jq '.event')" = push
+          test "$(gh api "$run" --jq '.head_branch')" = main
+          test "$(gh api "$run" --jq '.head_sha')" = 8aa329e240d2761f9a7ae9454a846be84388b016
+
+      - name: Download five original engine artifacts from the successful run
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: 12641907203,12641737790,12641682954,12641124362,12640784007
+          repository: gaong5247-cmd/Stockless-variants
+          run-id: 40303979772
+          github-token: ${{ github.token }}
+          path: artifacts
+
+      - name: Check package contents, hashes, source commit and complete target set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib
+          import json
+          import shutil
+
+          version = "0.2.0-dev"
+          source_sha = "8aa329e240d2761f9a7ae9454a846be84388b016"
+          targets = [
+              ("windows", "x86-64"),
+              ("windows", "x86-64-avx2"),
+              ("linux", "x86-64"),
+              ("linux", "x86-64-avx2"),
+              ("android-arm64", "armv8"),
+          ]
+          root = Path("artifacts")
+          destination = Path("release-assets")
+          destination.mkdir(exist_ok=True)
+          archives = list(root.rglob("*.zip"))
+          expected = {
+              f"stockless-variants-{version}-{platform}-{arch}.zip": (platform, arch)
+              for platform, arch in targets
+          }
+          if len(archives) != 5 or set(p.name for p in archives) != set(expected):
+              raise SystemExit(f"Expected five named engine ZIPs; found {[p.name for p in archives]}")
+
+          for path in archives:
+              platform, arch = expected[path.name]
+              checksum_path = path.with_name(path.name + ".sha256")
+              if not checksum_path.is_file():
+                  raise SystemExit(f"Missing checksum for {path.name}")
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              if checksum_path.read_text().strip() != f"{digest}  {path.name}":
+                  raise SystemExit(f"SHA-256 mismatch for {path.name}")
+              with ZipFile(path) as archive:
+                  if archive.testzip() is not None:
+                      raise SystemExit(f"Corrupted package ZIP: {path.name}")
+                  manifest = json.loads(archive.read("manifest.json"))
+                  required = {
+                      "version": version,
+                      "commit": source_sha,
+                      "platform": platform,
+                      "architecture": arch,
+                      "status": "experimental-development-build",
+                  }
+                  for key, value in required.items():
+                      if manifest.get(key) != value:
+                          raise SystemExit(f"{path.name}: invalid {key}: {manifest.get(key)!r}")
+                  if "corresponding-source.zip" not in archive.namelist():
+                      raise SystemExit(f"{path.name}: missing corresponding source")
+                  for member, checksum in manifest["files"].items():
+                      if hashlib.sha256(archive.read(member)).hexdigest() != checksum:
+                          raise SystemExit(f"{path.name}: invalid manifest hash for {member}")
+              shutil.copy2(path, destination / path.name)
+              shutil.copy2(checksum_path, destination / checksum_path.name)
+              print("Verified", path.name)
+
+          notes = """## Experimental development release (0.2.0-dev)
+
+          These are the **five verified native engine ZIP packages** from the successful
+          [Build and validate Stockless Variants run #2](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40303979772)
+          for commit §SOURCE_SHA§.
+
+          - Windows x86-64 and Windows x86-64 AVX2
+          - Linux x86-64 and Linux x86-64 AVX2
+          - Android ARM64 (API 26, native executable; **not an APK**)
+
+          Each release ZIP includes the engine, exact corresponding source,
+          required notices, variant inventory and its available validation reports.
+          Matching *.zip.sha256 checksums are attached. AVX2 files require a compatible CPU.
+
+          **Development limitations:** The engine is not strength-certified or
+          approved as stable. Android execution on a physical device remains unverified.
+          Engine packages use classical evaluation by default; separately trained NNUE
+          models are **not included**. See README and docs/LIMITATIONS.md.
+          """.replace("§SOURCE_SHA§", source_sha)
+          Path("release-notes.md").write_text(
+              "\n".join(line.strip() for line in notes.strip().splitlines()) + "\n"
+          )
+          PY
+
+      - name: Publish or safely update the latest GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v0.2.0-dev"
+          source_sha="8aa329e240d2761f9a7ae9454a846be84388b016"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            existing_target="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq '.targetCommitish')"
+            test "$existing_target" = "$source_sha" || { echo "Release tag has a different target; refusing to overwrite" >&2; exit 1; }
+            gh release upload "$tag" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md --latest
+          else
+            gh release create "$tag" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$source_sha" \
+              --title "Stockless Variants v0.2.0-dev (experimental)" \
+              --notes-file release-notes.md \
+              --latest
+          fi
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,assets,isDraft,isPrerelease --jq '{url, count: (.assets | length), isDraft, isPrerelease}'
