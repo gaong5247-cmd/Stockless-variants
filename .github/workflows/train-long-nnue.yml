@@ -1,0 +1,262 @@
+name: Long NNUE self-play and training (sharded)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/train-long-nnue.yml'
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: Variant to train, or all five independently
+        type: choice
+        options: [all, chess, shogi, janggi, xiangqi, makruk]
+        default: all
+      games_per_shard:
+        description: Games per shard; two shards per variant (16..256)
+        type: number
+        default: 256
+      max_plies:
+        description: Max plies per game; unfinished results remain null (32..136)
+        type: number
+        default: 136
+      depth:
+        description: Classical teacher search depth (2..5)
+        type: number
+        default: 4
+      epochs:
+        description: Training epochs (1..120)
+        type: number
+        default: 60
+      seed:
+        description: Reproducible base seed, uint32
+        type: number
+        default: 20261026
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nnue-long-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      variants: ${{ steps.config.outputs.variants }}
+      games: ${{ steps.config.outputs.games }}
+      max_plies: ${{ steps.config.outputs.max_plies }}
+      depth: ${{ steps.config.outputs.depth }}
+      epochs: ${{ steps.config.outputs.epochs }}
+      seed: ${{ steps.config.outputs.seed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Check shard merge logic before heavy compute
+        run: python3 tests/long_merge_test.py
+      - name: Validate experiment budget and parameters
+        id: config
+        env:
+          REQ_VARIANT: ${{ inputs.variant }}
+          REQ_GAMES: ${{ inputs.games_per_shard }}
+          REQ_MAX_PLIES: ${{ inputs.max_plies }}
+          REQ_DEPTH: ${{ inputs.depth }}
+          REQ_EPOCHS: ${{ inputs.epochs }}
+          REQ_SEED: ${{ inputs.seed }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          variants = ['chess','shogi','janggi','xiangqi','makruk']
+          request = os.environ['REQ_VARIANT'] or 'all'
+          if request not in ['all']+variants:
+              raise SystemExit('Invalid variant')
+          result = {'variants': json.dumps(variants if request == 'all' else [request])}
+          settings = {'games': (256,16,256), 'max_plies': (136,32,136),
+                      'depth': (4,2,5), 'epochs': (60,1,120),
+                      'seed': (20261026,0,2**32 - 1)}
+          for key, (default, low, high) in settings.items():
+              raw = os.environ['REQ_'+key.upper()]
+              try:
+                  value = int(raw) if raw else default
+              except ValueError:
+                  raise SystemExit('Invalid integer for '+key)
+              if not low <= value <= high:
+                  raise SystemExit(f'{key} out of range: {low}..{high}')
+              result[key] = value
+          max_rows = 2 * result['games'] * (result['max_plies'] - min(8, result['max_plies']//4))
+          if max_rows * 1640 * 4 > 512 * 1024 * 1024 or max_rows > 100000:
+              raise SystemExit('Experiment exceeds the audited dense trainer budget')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              for key, value in result.items():
+                  print(f'{key}={value}',file=output)
+          print(json.dumps({**result, 'max_rows_per_variant': max_rows}))
+          PY
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build one identical teacher for every generation shard
+        run: |
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/teacher
+          tar -czf build/teacher/teacher.tar.gz \
+            build/engine/src/stockless-variants build/engine/build-manifest.json
+          sha256sum build/engine/src/stockless-variants
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nnue-long-teacher-${{ github.sha }}
+          path: build/teacher/teacher.tar.gz
+          retention-days: 14
+          if-no-files-found: error
+
+  generate:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 320
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: ${{ fromJSON(needs.prepare.outputs.variants) }}
+        shard: [0, 1]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      SHARD: ${{ matrix.shard }}
+      GAMES: ${{ needs.prepare.outputs.games }}
+      PLIES: ${{ needs.prepare.outputs.max_plies }}
+      DEPTH: ${{ needs.prepare.outputs.depth }}
+      SEED: ${{ needs.prepare.outputs.seed }}
+      DATA_DIR: build/nnue-long-shard/${{ matrix.variant }}/${{ matrix.shard }}/data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nnue-long-teacher-${{ github.sha }}
+          path: build/teacher
+      - name: Restore the exact teacher executable and build identity
+        run: |
+          tar -xzf build/teacher/teacher.tar.gz
+          chmod +x build/engine/src/stockless-variants
+      - name: Generate independent native self-play positions
+        run: |
+          SHARD_SEED=$((SEED + SHARD * 1000000))
+          python3 tools/nnue/generate.py \
+            --engine build/engine/src/stockless-variants \
+            --variant "$VARIANT" --games "$GAMES" --max-plies "$PLIES" \
+            --depth "$DEPTH" --opening-plies 8 --seed "$SHARD_SEED" \
+            --output "$DATA_DIR"
+      - name: Record generated count and censored outcomes
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads((Path(os.environ['DATA_DIR'])/'manifest.json').read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"### {m['variant']} shard {os.environ['SHARD']}\n")
+              f.write(f"Games: {m['game_count']}; positions: {m['rows']}; ")
+              f.write(f"completed: {m['completed_games']}; truncated: {m['truncated_games']}.\n")
+              f.write("Truncated games have null results, not fabricated draws.\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nnue-long-data-${{ matrix.variant }}-${{ matrix.shard }}
+          path: build/nnue-long-shard/${{ matrix.variant }}/${{ matrix.shard }}/data/
+          retention-days: 14
+          compression-level: 9
+          if-no-files-found: error
+
+  train:
+    needs: [prepare, generate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: ${{ fromJSON(needs.prepare.outputs.variants) }}
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      VARIANT: ${{ matrix.variant }}
+      EPOCHS: ${{ needs.prepare.outputs.epochs }}
+      SEED: ${{ needs.prepare.outputs.seed }}
+      DATA_DIR: build/nnue-long-dataset/${{ matrix.variant }}
+      MODEL_DIR: build/nnue-long-model/${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned CPU training dependency
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: nnue-long-teacher-${{ github.sha }}
+          path: build/teacher
+      - name: Restore identical native validation runtime
+        run: |
+          tar -xzf build/teacher/teacher.tar.gz
+          chmod +x build/engine/src/stockless-variants
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nnue-long-data-${{ matrix.variant }}-*
+          path: build/nnue-long-input/${{ matrix.variant }}
+          merge-multiple: false
+      - name: Merge and verify two independent generation shards
+        run: |
+          python tools/long_training/merge.py --input-root "build/nnue-long-input/$VARIANT" \
+            --output "$DATA_DIR" --seed "$SEED" --variant "$VARIANT" --shards 2
+      - name: Train one combined per-variant network and quantize
+        run: |
+          python tools/nnue/train.py --data "$DATA_DIR" --output "$MODEL_DIR" \
+            --epochs "$EPOCHS" --batch-size 256 --seed "$SEED"
+      - name: Verify actual NNUE inference and legal searches
+        run: |
+          python tools/nnue/validate.py --engine build/engine/src/stockless-variants \
+            --data "$DATA_DIR" --model-dir "$MODEL_DIR" \
+            --report "$MODEL_DIR/runtime-validation.json" --positions 128
+      - name: Record measured results (not Elo)
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['MODEL_DIR'])
+          lines=[f"### {os.environ['VARIANT']} long NNUE","No automatic promotion or Elo claim."]
+          dataset=Path(os.environ['DATA_DIR'])/'manifest.json'
+          if dataset.exists():
+              d=json.loads(dataset.read_text())
+              lines.append(f"Merged {len(d['shard_provenance'])} shards, {d['game_count']} games, {d['rows']} positions.")
+          metric=root/'metrics.json'
+          if metric.exists():
+              m=json.loads(metric.read_text())
+              lines.append(f"Updates: {m['gradient_steps']}; selected epoch: {m['selected_epoch']}.")
+              lines.append(f"Test teacher MAE: {m['final_float']['test']['mae_cp']:.2f} cp; mean baseline: {m['test_train_mean_baseline']['mae_cp']:.2f}.")
+              lines.append(f"Quantization passed: {m['quantization_passed']}; validation improved: {m['validation_improved_from_initial']}.")
+          runtime=root/'runtime-validation.json'
+          if runtime.exists():
+              r=json.loads(runtime.read_text())
+              lines.append(f"Trained-model native checks: {r['passed']} pass / {r['failed']} fail.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - name: Archive model and auditable data provenance
+        run: |
+          mkdir -p "$MODEL_DIR/provenance"
+          cp "$DATA_DIR/manifest.json" "$MODEL_DIR/provenance/merged-data-manifest.json"
+          cp LICENSE NOTICE.md "$MODEL_DIR/provenance/"
+          cp tools/nnue/requirements.txt "$MODEL_DIR/provenance/"
+          cp .github/workflows/train-long-nnue.yml "$MODEL_DIR/provenance/"
+          sha256sum "$MODEL_DIR/$VARIANT.svnnue" "$MODEL_DIR/metrics.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nnue-long-model-${{ matrix.variant }}-${{ github.sha }}
+          path: build/nnue-long-model/${{ matrix.variant }}/
+          retention-days: 30
+          if-no-files-found: warn
