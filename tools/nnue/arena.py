@@ -108,17 +108,20 @@ def run(args):
         # early censored games may bias completion. No Elo transformation.
         interval=None
         if played>=2:
-            samples=[1. if r["result_nnue"]==1 else .5 if r["result_nnue"]==0 else 0.
-                     for r in results if r["completed"]]
-            avg=sum(samples)/len(samples)
-            variance=sum((s-avg)**2 for s in samples)/(len(samples)-1)
-            span=1.96*math.sqrt(variance/len(samples))
-            interval=[max(0.,avg-span),min(1.,avg+span)]
+            # Wilson-style interval avoids the spuriously zero-width normal
+            # interval for all-loss or all-win pilot matches. With draws
+            # scored 0.5 this is descriptive, not a binomial Elo CI.
+            z=1.96
+            p=score
+            denominator=1+z*z/played
+            center=(p+z*z/(2*played))/denominator
+            margin=z*math.sqrt(p*(1-p)/played+z*z/(4*played*played))/denominator
+            interval=[max(0.,center-margin),min(1.,center+margin)]
         summary={"schema":1,"variant":args.variant,"engine_sha256":sha256(engine),
                  "network_sha256":sha256(model),"depth":args.depth,"pairs":args.pairs,
                  "games":len(results),"max_plies":args.max_plies,"seed":args.seed,
                  "wins":wins,"draws":draws,"losses":losses,"censored":censored,
-                 "score_completed_only":score,"normal_95pct_interval_completed_only":interval,
+                 "score_completed_only":score,"wilson_style_95pct_interval_completed_only":interval,
                  "uncertainty":"Censoring is not a draw; interval ignores censored games and is not an Elo CI",
                  "strength_validated":False,"elo":None,"games_records":results}
         args.output.parent.mkdir(parents=True,exist_ok=True)

@@ -1,0 +1,126 @@
+name: Train streaming NNUE on 281k native teacher positions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/train-stream-actual.yml'
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: Total desired epochs, including previous checkpoint epochs
+        type: number
+        default: 6
+      resume_run_id:
+        description: Previous run ID with nnue-stream model artifacts; 0 starts fresh
+        type: number
+        default: 0
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  train:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 260
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      VARIANT: ${{ matrix.variant }}
+      DESIRED_EPOCHS: ${{ inputs.epochs }}
+      RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU trainer
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Build native runtime with matching stable rules fingerprint
+        run: make build ARCH=x86-64 JOBS=2
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40309268117
+          name: nnue-long-data-${{ matrix.variant }}-0
+          github-token: ${{ github.token }}
+          path: build/datasets/${{ matrix.variant }}/0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40309268117
+          name: nnue-long-data-${{ matrix.variant }}-1
+          github-token: ${{ github.token }}
+          path: build/datasets/${{ matrix.variant }}/1
+      - name: Restore previous complete optimizer state (manual resume only)
+        if: inputs.resume_run_id != 0 && inputs.resume_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.resume_run_id }}
+          pattern: nnue-stream-${{ matrix.variant }}-*
+          github-token: ${{ github.token }}
+          path: build/stream/${{ matrix.variant }}
+          merge-multiple: true
+      - name: Train selected number of epochs, checkpoint, and quantize
+        run: |
+          EPOCHS="$DESIRED_EPOCHS"
+          if [ -z "$EPOCHS" ]; then EPOCHS=6; fi
+          if [ "$EPOCHS" -lt 1 ] || [ "$EPOCHS" -gt 250 ]; then exit 1; fi
+          ARGS="--data build/datasets/$VARIANT/0 build/datasets/$VARIANT/1 \
+                --output build/stream/$VARIANT --epochs $EPOCHS --batch-size 256 \
+                --seed 20261026"
+          if [ -n "$RESUME_RUN_ID" ] && [ "$RESUME_RUN_ID" != "0" ]; then
+            python tools/nnue/train_stream.py $ARGS --resume
+          elif [ "$EPOCHS" -ge 3 ]; then
+            python tools/nnue/train_stream.py $ARGS --stop-after-epoch 2
+            python tools/nnue/train_stream.py $ARGS --resume
+          else
+            python tools/nnue/train_stream.py $ARGS
+          fi
+      - name: Replay native heldout positions and trained NNUE
+        run: |
+          python tools/nnue/validate_stream.py \
+            --engine build/engine/src/stockless-variants \
+            --index "build/stream/$VARIANT/index.sqlite3" \
+            --model-dir "build/stream/$VARIANT" --positions 64 \
+            --report "build/stream/$VARIANT/runtime-validation.json"
+      - name: Summarize actual recorded training loss and heldout checks
+        if: always()
+        run: |
+          python - <<'PY'
+          import os, json
+          from pathlib import Path
+          d=Path('build/stream')/os.environ['VARIANT']
+          lines=[f"## Streaming {os.environ['VARIANT']} (experimental)"]
+          if (d/'metrics.json').exists():
+              m=json.loads((d/'metrics.json').read_text())
+              lines.append(f"Epochs: {m['epochs_completed']}; steps: {m['gradient_steps']}; selected epoch: {m['selected_epoch']}.")
+              lines.append(f"Test teacher approximation MAE: {m['test_teacher_approximation']['mae_cp']:.3f} cp.")
+              lines.append(f"Quantization gate: {m['quantization_passed']}; no strength/Elo claim.")
+          if (d/'runtime-validation.json').exists():
+              t=json.loads((d/'runtime-validation.json').read_text())
+              lines.append(f"Actual native checks: {t['checks']}, failures: {t['failed']}.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nnue-stream-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/stream/${{ matrix.variant }}/*.svnnue
+            build/stream/${{ matrix.variant }}/state-epoch-*.npz
+            build/stream/${{ matrix.variant }}/latest.json
+            build/stream/${{ matrix.variant }}/metrics.json
+            build/stream/${{ matrix.variant }}/index-summary.json
+            build/stream/${{ matrix.variant }}/network-manifest.json
+            build/stream/${{ matrix.variant }}/runtime-validation.json
+          retention-days: 30
+          if-no-files-found: error

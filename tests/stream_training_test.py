@@ -40,11 +40,12 @@ def write_native_fixture(root, rows=360, games=36):
                 # Two board features + one counted pocket feature; stable,
                 # bounded, sparse, and more than 1M distinct possible inputs.
                 first=serial%64
-                second=(serial//64)%63
-                if second>=first: second+=1
-                count=1+((serial//(64*63))%500)
-                features=[[min(first,second),1],[max(first,second),1],[64,count]]
-                side=(serial//(64*63*500))%2
+                second=65+((serial//64)%64)
+                count=1+(serial//(64*64))
+                if count > 512:
+                    raise ValueError("Synthetic unique fixture capacity exhausted")
+                features=[[first,1],[64,count],[second,1]]
+                side=serial%2
                 cp=(g*17+j*13)%401-200
                 row={"schema":1,"game_id":gid,"ply":j+8,"fen":f"test-fixture-{serial}",
                      "variant":"chess","rules_sha256":"a"*64,"teacher_engine_sha256":"b"*64,
