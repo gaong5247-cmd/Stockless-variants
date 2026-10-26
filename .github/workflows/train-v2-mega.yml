@@ -74,7 +74,7 @@ jobs:
           python - <<'PY'
           import os,json
           from pathlib import Path
-          p=Path('build/mega')/os.environ['VARIANT']/os.environ['SHARD']/'manifest.json'
+          p=Path('build/v2mega')/os.environ['VARIANT']/os.environ['SHARD']/'manifest.json'
           m=json.loads(p.read_text())
           assert m['game_count']==1024 and m['native_context_version']==2
           assert m['descriptor']['format_version']==m['descriptor']['feature_version']==2
@@ -148,7 +148,7 @@ jobs:
           python - <<'PY'
           import json,os
           from pathlib import Path
-          p=Path('build/mega-model')/os.environ['VARIANT']
+          p=Path('build/v2mega-model')/os.environ['VARIANT']
           lines=['## '+os.environ['VARIANT']+' independent mega NNUE']
           if (p/'index-summary.json').exists():
               d=json.loads((p/'index-summary.json').read_text())
