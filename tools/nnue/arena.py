@@ -22,17 +22,27 @@ def id_sha(obj):
 
 def one_game(classical,neural,opening,variant,nnue_white,depth,max_plies):
     moves=opening.copy()
-    status=None
+    # Never assume WHITE moves first. Some regional variants use a different
+    # native starting side, and opening parity alone is not proof of color.
     while len(moves)<max_plies:
-        active=neural if ((len(moves)%2==0)==nnue_white) else classical
-        active.position(moves)
-        state=active.features()
-        status=state
-        if state["terminal"]["ended"]:
+        classical.position(moves)
+        judge=classical.features()
+        if judge["terminal"]["ended"]:
             break
+        nnue_to_move=(judge["side_to_move"]==0)==nnue_white
+        active=neural if nnue_to_move else classical
+        if nnue_to_move:
+            neural.position(moves)
+            state=neural.features()
+            if (state["side_to_move"]!=judge["side_to_move"] or
+                    state["fen"]!=judge["fen"] or
+                    state["legal_moves"]!=judge["legal_moves"]):
+                raise RuntimeError("Neural/classical rule state diverged before move")
+        else:
+            state=judge
         move,_=active.search(depth)
         if move not in state["legal_moves"]:
-            raise RuntimeError(f"Illegal {move} from {'NNUE' if active is neural else 'Classical'}")
+            raise RuntimeError(f"Illegal {move} from {'NNUE' if nnue_to_move else 'Classical'}")
         moves.append(move)
     # Native check even when max_plies reached: final move could be decisive.
     classical.position(moves)

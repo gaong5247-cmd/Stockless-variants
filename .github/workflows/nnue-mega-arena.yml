@@ -5,12 +5,13 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/nnue-mega-arena.yml'
+      - 'tools/nnue/arena.py'
   workflow_dispatch:
     inputs:
       pairs:
         description: Color-swapped opening pairs per variant (1..128)
         type: number
-        default: 24
+        default: 48
 
 permissions:
   contents: read
@@ -19,7 +20,7 @@ permissions:
 jobs:
   arena:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 170
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -68,7 +69,7 @@ jobs:
           PY
       - name: Actual paired engine matches with identical opening and color swaps
         run: |
-          COUNT=24
+          COUNT=48
           if [ -n "$PAIRS" ]; then COUNT="$PAIRS"; fi
           if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -lt 1 ] || [ "$COUNT" -gt 128 ]; then
             echo 'pairs must be in 1..128' >&2
@@ -77,8 +78,8 @@ jobs:
           python3 tools/nnue/arena.py \
             --engine build/engine/src/stockless-variants \
             --model "build/mega-model/$VARIANT.svnnue" \
-            --variant "$VARIANT" --pairs "$COUNT" --depth 3 \
-            --max-plies 240 --opening-plies 6 --seed 20261026 \
+            --variant "$VARIANT" --pairs "$COUNT" --depth 4 \
+            --max-plies 300 --opening-plies 6 --seed 20261027 \
             --output "build/mega-arena-$VARIANT.json"
       - name: Summarize measured WDL (unfinished games kept censored)
         if: always()
@@ -93,7 +94,7 @@ jobs:
           lines=[f"### {r['variant']} NNUE (1.247M data) vs Classical",
                  f"Games: {r['games']} — NNUE W/D/L: {r['wins']}/{r['draws']}/{r['losses']}",
                  f"Unfinished: {r['censored']}. Completed-only score: {r['score_completed_only']}.",
-                 "This is a small paired depth-3 sample. Not an Elo or strength certification."]
+                 "This is a bounded color-paired depth-4 sample. Not an Elo or strength certification."]
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
               f.write('\n\n'.join(lines)+'\n')
           PY
@@ -125,6 +126,13 @@ jobs:
           assert len(parsed)==5 and {r['variant'] for r in parsed}==expected
           assert all(r['games']==len(r['games_records'])==2*r['pairs'] for r in parsed)
           assert all(r['games']==r['wins']+r['draws']+r['losses']+r['censored'] for r in parsed)
+          for r in parsed:
+              for pair in range(r['pairs']):
+                  games=[g for g in r['games_records'] if g['pair']==pair]
+                  if (len(games)!=2 or sorted(g['nnue_white'] for g in games)!=[False,True]
+                      or games[0]['opening']!=games[1]['opening']):
+                      raise AssertionError('Missing or inconsistent color-swapped opening')
+              assert all(g['completed']==(g['result_nnue'] is not None) for g in r['games_records'])
           totals={field:sum(r[field] for r in parsed) for field in ('games','wins','draws','losses','censored')}
           lines=['## Experimental NNUE vs Classical summary',f"Total {totals['games']} games, NNUE W/D/L {totals['wins']}/{totals['draws']}/{totals['losses']}; unfinished {totals['censored']}.",
                  'No Elo inferred; games have different rules and are not pooled for an Elo calculation.']
@@ -132,5 +140,11 @@ jobs:
               lines.append(f"{r['variant']}: {r['wins']}/{r['draws']}/{r['losses']}; censored {r['censored']}")
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
               f.write('\n\n'.join(lines)+'\n')
+          Path('arena-summary.json').write_text(json.dumps({'schema':1,'source_run':40314151101,'results':parsed,'totals':totals},indent=2)+'\n')
           print(json.dumps(totals))
           PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nnue-mega-arena-summary
+          path: arena-summary.json
+          retention-days: 30
