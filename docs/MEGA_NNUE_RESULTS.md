@@ -50,6 +50,36 @@ Five real UCI native engine match jobs used the exact checksummed new SVNNUE wei
 
 [Raw match history for all 240 games](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40318979116).
 
+## Higher-depth 480-game cross-check (independent follow-up)
+
+The [successful depth-4 arena run 40319511867](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40319511867)
+is a *second and distinct* actual experiment. It used the exact same
+million-position models with matching SHA-256 network identities, but moved
+to **depth 4**, **48 paired openings** per variant (96 games per variant),
+a 300-ply cutoff and a new deterministic opening seed (20261027). Its
+native-turn-based player assignment uses the actual engine's
+`side_to_move` rather than assuming every game starts with the same color.
+Each color-swapped opening pair was checked by the aggregate job.
+All five match jobs and the aggregate job passed.
+
+| Game | NNUE wins | Draws | NNUE losses | Unfinished | Completed-only score | Game histories |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Chess | 4 | 3 | 88 | 1 | 5.79% | [JSON](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40319511867/artifacts/12648007623) |
+| Shogi | 9 | 0 | 86 | 1 | 9.47% | [JSON](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40319511867/artifacts/12648406844) |
+| Janggi | 23 | 0 | 73 | 0 | 23.96% | [JSON](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40319511867/artifacts/12647493838) |
+| Xiangqi | 24 | 14 | 56 | 2 | 32.98% | [JSON](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40319511867/artifacts/12647744342) |
+| Makruk | 1 | 6 | 86 | 3 | 4.30% | [JSON](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40319511867/artifacts/12647957935) |
+| **Total** | **61** | **23** | **389** | **7** | **Do not pool variants for Elo** | [Aggregate](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40319511867/artifacts/12648791966) |
+
+All incomplete games remain **censored**, not draws. The per-game
+percentages use only completed matches. Although sample sizes increased,
+this is still not an Elo estimate: different rules and color/opening
+samples cannot be pooled as if one homogeneous rating pool. Depth-3
+and depth-4 scores are *not a controlled network-only comparison*, as the
+search depth and independent opening sample also changed. Classical
+remains stronger on all five games. Do not enable these experimental
+models as the default evaluator based on these results.
+
 ## Download and reproduce
 
 The separate research [Release archive](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/nnue-corpus-1.247m-20261026) contains exactly 17 files: ten native JSONL data archives, five model/optimizer archives, a machine-readable experiment manifest and SHA256SUMS.txt. It is a prerelease, **not the latest engine release**. The existing latest engine release remains [v0.2.0-dev](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/v0.2.0-dev). Release assets persist outside short-lived Actions artifacts, subject to repository/release retention.
