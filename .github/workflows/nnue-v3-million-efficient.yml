@@ -1,0 +1,210 @@
+name: Efficient SVNNUE-v3 train from 1.24M audited teacher positions
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-efficient]
+    paths: ['.github/workflows/nnue-v3-million-efficient.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: svnnue-v3-reencode-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build exact native v3 engine once
+        run: |
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/v3-teacher
+          tar -czf build/v3-teacher/native-v3.tar.gz build/engine/src/stockless-variants build/engine/build-manifest.json
+          sha256sum build/engine/src/stockless-variants
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-v3-matching-engine
+          path: build/v3-teacher/native-v3.tar.gz
+          retention-days: 14
+
+  reencode:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+        shard: [0, 1]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-v3-matching-engine
+          path: build/v3-teacher
+      - name: Extract exact native v3 feature runtime
+        run: |
+          tar -xzf build/v3-teacher/native-v3.tar.gz
+          chmod +x build/engine/src/stockless-variants
+      - name: Download original authentic native v2 depth-4 labels and game histories
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40329751018
+          name: v2-mega-data-${{ matrix.variant }}-${{ matrix.shard }}
+          github-token: ${{ github.token }}
+          path: build/original-v2/${{ matrix.variant }}/${{ matrix.shard }}
+      - name: Verify all source hashes, replay positions and create v3 features without new search
+        run: |
+          python tools/nnue/reencode_native_v3.py \
+            --source "build/original-v2/$VARIANT/$SHARD" \
+            --output "build/native-v3-data/$VARIANT/$SHARD" \
+            --engine build/engine/src/stockless-variants --timeout 90
+      - name: Check generated v3 native count and original teacher identity
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          v,s=os.environ["VARIANT"],os.environ["SHARD"]
+          old=json.loads((Path('build/original-v2')/v/s/'manifest.json').read_text())
+          new=json.loads((Path('build/native-v3-data')/v/s/'manifest.json').read_text())
+          assert old['game_count']==new['game_count']==1024
+          assert old['rows']==new['rows'] and new['descriptor']['feature_version']==3
+          assert old['engine_sha256']==new['engine_sha256']
+          assert new['original_teacher_scores_preserved'] and not new['relabeling']
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"## {v} source shard {s}: {new['rows']} verified native v3 features\n\n")
+              f.write("Original depth-4 teacher labels and outcomes preserved; no new games claimed.\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-v3-reencoded-${{ matrix.variant }}-${{ matrix.shard }}
+          path: build/native-v3-data/${{ matrix.variant }}/${{ matrix.shard }}/
+          retention-days: 14
+          compression-level: 9
+          if-no-files-found: error
+
+  train:
+    needs: [prepare, reencode]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 320
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install audited CPU SciPy CSR and NumPy trainer
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-v3-matching-engine
+          path: build/v3-teacher
+      - name: Restore matching v3 inference executable
+        run: |
+          tar -xzf build/v3-teacher/native-v3.tar.gz
+          chmod +x build/engine/src/stockless-variants
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-v3-reencoded-${{ matrix.variant }}-0
+          path: build/v3-training-data/${{ matrix.variant }}/0
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-v3-reencoded-${{ matrix.variant }}-1
+          path: build/v3-training-data/${{ matrix.variant }}/1
+      - name: Train from verified real labels using sparse CSR and full Adam checkpoint resume
+        run: |
+          COMMON="--data build/v3-training-data/$VARIANT/0 build/v3-training-data/$VARIANT/1 --output build/v3-trained/$VARIANT --seed 20261030 --epochs 24 --batch-size 256 --compute-kernel csr"
+          python tools/nnue/train_stream.py $COMMON --stop-after-epoch 4
+          python tools/nnue/train_stream.py $COMMON --resume
+      - name: Validate exact fixed-point and legal v3 search on frozen heldout games
+        run: |
+          python tools/nnue/validate_stream.py --engine build/engine/src/stockless-variants \
+            --index "build/v3-trained/$VARIANT/index.sqlite3" \
+            --model-dir "build/v3-trained/$VARIANT" --positions 128 \
+            --report "build/v3-trained/$VARIANT/native-validation.json"
+      - name: Record test approximation and feature provenance, not Elo
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os
+          p=Path('build/v3-trained')/os.environ['VARIANT']
+          rows=[]
+          for name in ('index-summary.json','metrics.json','native-validation.json'):
+              if (p/name).exists():
+                  r=json.loads((p/name).read_text())
+                  rows.append(f"{name}: "+json.dumps({
+                      k:r[k] for k in ('rows_read','rows_indexed','epochs_completed',
+                                      'selected_epoch','gradient_steps','compute_kernel',
+                                      'checks','failed') if k in r}))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as output:
+              output.write("## Native v3 "+os.environ['VARIANT']+"\n\n"+"\n\n".join(rows)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trained-native-v3-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/v3-trained/${{ matrix.variant }}/*.svnnue
+            build/v3-trained/${{ matrix.variant }}/index-summary.json
+            build/v3-trained/${{ matrix.variant }}/metrics.json
+            build/v3-trained/${{ matrix.variant }}/network-manifest.json
+            build/v3-trained/${{ matrix.variant }}/latest.json
+            build/v3-trained/${{ matrix.variant }}/state-epoch-*.npz
+            build/v3-trained/${{ matrix.variant }}/native-validation.json
+          retention-days: 30
+          if-no-files-found: error
+
+  summarize:
+    needs: train
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: trained-native-v3-*
+          path: reports
+          merge-multiple: false
+      - name: Validate million-plus real positions reencoded, five networks and C++ checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os
+          files=list(Path('reports').glob('*/index-summary.json'))
+          if len(files)!=5:
+              raise SystemExit(f'Expected five measured v3 models, found {len(files)}')
+          total=unique=0
+          for file in sorted(files):
+              j=json.loads(file.read_text())
+              assert j['descriptor']['feature_version']==3
+              total+=j['rows_read']; unique+=j['rows_indexed']
+          if total<1000000:
+              raise SystemExit(f'Reencoded source corpus under million-position goal: {total}')
+          print(json.dumps({'reencoded_positions':total,'unique_v3_inputs':unique,
+                            'new_teacher_positions_generated':0,
+                            'source_teacher_run':40329751018,
+                            'five_v3_native_networks_passed':True,
+                            'elo':None}))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f'## V3: {total:,} historical teacher positions re-encoded, {unique:,} unique native v3 inputs\n\n')
+              f.write('This is v2-to-v3 native feature replay of audited historical data, not newly searched positions or Elo.\n')
+          PY
