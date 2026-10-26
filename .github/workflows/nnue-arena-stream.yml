@@ -1,0 +1,64 @@
+name: Paired arena for newly streamed SVNNUE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nnue-arena-stream.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  arena:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the exact pinned rules and NNUE runtime
+        run: make build ARCH=x86-64 JOBS=2
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40313573444
+          name: nnue-stream-${{ matrix.variant }}-90953d2be1b791d7cc09553a77e45ad44e909c64
+          path: build/streamed-model
+          github-token: ${{ github.token }}
+      - name: Run 32 actual paired opening games (not teacher approximation)
+        run: |
+          python tools/nnue/arena.py \
+            --engine build/engine/src/stockless-variants \
+            --model "build/streamed-model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --pairs 16 --depth 3 \
+            --max-plies 240 --opening-plies 6 --seed 20261026 \
+            --output "build/arena-stream-$VARIANT.json"
+      - name: Expose W/D/L, censoring, and model hashes
+        run: |
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          j=json.loads((Path('build')/f"arena-stream-{os.environ['VARIANT']}.json").read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"### {j['variant']} streamed NNUE versus Classical\n\n")
+              f.write(f"NNUE wins/draws/losses: {j['wins']}/{j['draws']}/{j['losses']} in {j['games']} games.\n\n")
+              f.write(f"Unfinished: {j['censored']}; score on completed: {j['score_completed_only']}; **not Elo**.\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-stream-${{ matrix.variant }}
+          path: build/arena-stream-*.json
+          retention-days: 30
+          if-no-files-found: error
