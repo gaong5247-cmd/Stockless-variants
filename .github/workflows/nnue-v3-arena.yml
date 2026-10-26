@@ -1,0 +1,158 @@
+name: Measure SVNNUE-v3 king-relative search NPS and Classical strength
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-efficient]
+    paths: ['.github/workflows/nnue-v3-arena.yml']
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: Same-opening black/white pairs per variant
+        type: number
+        default: 24
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  arena:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 190
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      PAIRS: ${{ inputs.pairs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build exactly matching native v3 search/eval engine
+        run: make build ARCH=x86-64 JOBS=2
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40333649652
+          name: trained-native-v3-${{ matrix.variant }}-e8a7da1ecf7f815c6369a1e3921a9728d43375a5
+          github-token: ${{ github.token }}
+          path: build/model
+      - name: Validate original v3 model SHA, quantization and exact-integer source check
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          v=os.environ['VARIANT']; root=Path('build/model')
+          m=json.loads((root/'network-manifest.json').read_text())
+          t=json.loads((root/'metrics.json').read_text())
+          n=json.loads((root/'native-validation.json').read_text())
+          weight=root/(v+'.svnnue')
+          assert weight.read_bytes()[:8]==b'SVNNUE3\x00'
+          assert hashlib.sha256(weight.read_bytes()).hexdigest()==m['network_sha256']==n['network_sha256']
+          assert m['descriptor']['variant']==v and m['descriptor']['feature_version']==3
+          assert t['epochs_completed']==24 and t['compute_kernel']=='csr'
+          assert n['failed']==0 and n['checks']==132 and t['quantization_passed']
+          print('VERIFIED authentic trained v3',v,weight.stat().st_size,'bytes')
+          PY
+      - name: Measure actual native v3-versus-Classical search NPS on matched positions
+        run: |
+          python tools/research/benchmark_nnue_nps.py \
+            --engine build/engine/src/stockless-variants \
+            --network "build/model/$VARIANT.svnnue" --variant "$VARIANT" \
+            --depth 5 --positions 8 --opening-plies 8 \
+            --output "build/v3-nps-$VARIANT.json"
+      - name: Run color-swapped depth-4 NNUE-v3 versus Classical games
+        run: |
+          COUNT=24
+          if [ -n "$PAIRS" ]; then COUNT="$PAIRS"; fi
+          if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -lt 8 ] || [ "$COUNT" -gt 128 ]; then
+            echo "pairs must be 8..128" >&2; exit 1
+          fi
+          python tools/nnue/arena.py \
+            --engine build/engine/src/stockless-variants \
+            --model "build/model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --depth 4 --pairs "$COUNT" \
+            --max-plies 300 --opening-plies 6 --seed 20261030 \
+            --output "build/v3-arena-$VARIANT.json"
+      - name: Report independently measured NPS and outcomes
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          v=os.environ['VARIANT']; path=Path('build')
+          a=path/('v3-arena-'+v+'.json')
+          b=path/('v3-nps-'+v+'.json')
+          lines=['## SVNNUE-v3 '+v+' experimental comparison']
+          if a.exists():
+              r=json.loads(a.read_text())
+              lines.append(f"NNUE W/D/L: {r['wins']}/{r['draws']}/{r['losses']}; unfinished {r['censored']} of {r['games']}.")
+              lines.append('This is a small depth-4 same-opening color-swapped experiment, not Elo.')
+          if b.exists():
+              n=json.loads(b.read_text())
+              lines.append(f"Observed search NPS ratio neural/classical: {n['median_nps_ratio']}.")
+              lines.append('NPS can differ due to nodes searched and pruning, not only NNUE inference speed.')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v3-match-and-nps-${{ matrix.variant }}
+          path: |
+            build/v3-arena-${{ matrix.variant }}.json
+            build/v3-nps-${{ matrix.variant }}.json
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: arena
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v3-match-and-nps-*
+          path: reports
+          merge-multiple: true
+      - name: Check every color-swapped game and report measured results only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          results={}
+          for v in ('chess','shogi','janggi','xiangqi','makruk'):
+              a=json.loads((Path('reports')/('v3-arena-'+v+'.json')).read_text())
+              n=json.loads((Path('reports')/('v3-nps-'+v+'.json')).read_text())
+              assert a['games']==2*a['pairs']==len(a['games_records'])
+              assert a['games']==a['wins']+a['draws']+a['losses']+a['censored']
+              for pair in range(a['pairs']):
+                  sub=[g for g in a['games_records'] if g['pair']==pair]
+                  assert len(sub)==2 and sorted(g['nnue_white'] for g in sub)==[False,True]
+                  assert sub[0]['opening']==sub[1]['opening']
+                  assert all(g['completed']==(g['result_nnue'] is not None) for g in sub)
+              results[v]={'wins':a['wins'],'draws':a['draws'],
+                          'losses':a['losses'],'censored':a['censored'],
+                          'nps_ratio':n['median_nps_ratio']}
+          data={'schema':1,'source_teacher_run':40329751018,
+                'v3_training_run':40333649652,
+                'backend':'SVNNUE-v3 compact king-relative CSR-trained',
+                'results':results,'elo':None,'strength_certified':False}
+          Path('v3-arena-summary.json').write_text(json.dumps(data,indent=2)+'\n')
+          print(json.dumps(data))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## Verified v3 real-engine results\n\n')
+              f.write('|Variant|NNUE W/D/L|Unfinished|Observed NPS ratio|\n|---|---|---:|---:|\n')
+              for v,r in results.items():
+                  f.write(f"|{v}|{r['wins']}/{r['draws']}/{r['losses']}|{r['censored']}|{r['nps_ratio']}|\n")
+              f.write('\nNo Elo claims, no automatic model promotion.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v3-arena-summary
+          path: v3-arena-summary.json
+          retention-days: 30
