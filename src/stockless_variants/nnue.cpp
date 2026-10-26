@@ -28,6 +28,7 @@ constexpr std::size_t MaximumFileBytes = 4 * 1024 * 1024;
 constexpr std::int32_t MaximumBias = 1 << 20;
 constexpr std::uint8_t Magic[8] = {'S', 'V', 'N', 'N', 'U', 'E', '1', 0};
 constexpr std::uint8_t MagicV2[8] = {'S', 'V', 'N', 'N', 'U', 'E', '2', 0};
+constexpr std::uint8_t MagicV3[8] = {'S', 'V', 'N', 'N', 'U', 'E', '3', 0};
 
 enum class Backend { Classical, Auto, Neural };
 
@@ -41,6 +42,7 @@ struct Descriptor {
     std::uint32_t base_dimensions = 0;
     std::uint32_t dimensions = 0;
     bool v2 = false;
+    std::uint32_t version = 1;
 };
 
 struct Model {
@@ -75,9 +77,10 @@ std::string native_name(const Variant* variant) {
     return {};
 }
 
-Descriptor describe(const Variant* variant, bool v2 = false) {
+Descriptor describe(const Variant* variant, std::uint32_t version = 1) {
     Descriptor result;
-    result.v2 = v2;
+    result.v2 = version >= 2;
+    result.version = version;
     result.type_index.fill(-1);
     result.name = native_name(variant);
     if (result.name.empty())
@@ -95,7 +98,8 @@ Descriptor describe(const Variant* variant, bool v2 = false) {
     // V2 includes independent promoted-origin board features, chess
     // castling/en-passant rights and three per-piece regional buckets.
     result.dimensions = result.base_dimensions
-       + (v2 ? std::uint32_t(2 * typeCount * result.area + 4 + result.width + 6 * typeCount) : 0);
+       + (version >= 2 ? std::uint32_t(2 * typeCount * result.area + 4 + result.width + 6 * typeCount) : 0)
+       + (version == 3 ? std::uint32_t(64 * typeCount) : 0);
     return result;
 }
 
@@ -303,6 +307,17 @@ bool append_extra_features(const Position& pos, const Descriptor& descriptor,
     const std::uint32_t epBase = castleBase + 4;
     const std::uint32_t regionBase = epBase + std::uint32_t(descriptor.width);
     std::vector<int> regional(6 * count, 0);
+    // Coarse king-relative factor block: for each royal perspective,
+    // friendly/enemy type and 4x4 signed distance bucket. This expands by
+    // only 64*T features, far smaller than a full HalfKA king-square tensor.
+    std::vector<int> relative(descriptor.version == 3 ? 64 * count : 0, 0);
+    std::array<Square, COLOR_NB> kingSquares{};
+    if (descriptor.version == 3)
+        for (Color perspective : {WHITE, BLACK})
+            kingSquares[perspective] = pos.nnue_king_square(perspective);
+    auto distance_bucket = [](int distance) -> int {
+        return distance <= -4 ? 0 : distance < 0 ? 1 : distance <= 3 ? 2 : 3;
+    };
     const bool palaceGame = descriptor.name == "janggi" || descriptor.name == "xiangqi";
     const bool riverGame = descriptor.name == "xiangqi";
     const bool promotionGame = descriptor.name == "shogi" || descriptor.name == "makruk";
@@ -329,6 +344,17 @@ bool append_extra_features(const Position& pos, const Descriptor& descriptor,
                     ++mass;
                 }
             }
+            if (descriptor.version == 3)
+                for (int perspective = 0; perspective < 2; ++perspective) {
+                    const Square king = kingSquares[perspective];
+                    if (!is_ok(king))
+                        continue;
+                    const int dx = file - int(file_of(king));
+                    const int dy = rank - int(rank_of(king));
+                    const int cell = distance_bucket(dy) * 4 + distance_bucket(dx);
+                    const int index = ((perspective * 2 + color) * count + type) * 16 + cell;
+                    ++relative[index];
+                }
             const int group = color * count + type;
             if (palaceGame && file >= 3 && file <= 5
                     && (rank <= 2 || rank >= descriptor.height - 3))
@@ -340,23 +366,24 @@ bool append_extra_features(const Position& pos, const Descriptor& descriptor,
                 ++regional[4 * count + group];
         }
     if (descriptor.name == "chess") {
-        std::istringstream fen(pos.fen());
-        std::string board, stm, castle, ep;
-        if (!(fen >> board >> stm >> castle >> ep))
-            return false;
-        for (int i = 0; i < 4; ++i) {
-            const char bit = "KQkq"[i];
-            if (castle.find(bit) != std::string::npos) {
+        // Avoid formatting and parsing an entire FEN string on every leaf eval.
+        constexpr CastlingRights rights[] = {WHITE_OO, WHITE_OOO, BLACK_OO, BLACK_OOO};
+        for (int i = 0; i < 4; ++i)
+            if (pos.can_castle(rights[i])) {
                 extra.emplace_back(castleBase + std::uint32_t(i), 1);
                 ++mass;
             }
-        }
-        if (ep != "-" && !ep.empty()) {
-            const int file = int(ep[0]) - int('a');
+        Bitboard ep = pos.ep_squares();
+        std::array<bool, 12> seenFiles{};
+        while (ep) {
+            const int file = int(file_of(pop_lsb(ep)));
             if (file < 0 || file >= descriptor.width)
                 return false;
-            extra.emplace_back(epBase + std::uint32_t(file), 1);
-            ++mass;
+            if (!seenFiles[file]) {
+                extra.emplace_back(epBase + std::uint32_t(file), 1);
+                ++mass;
+                seenFiles[file] = true;
+            }
         }
     }
     for (int i = 0; i < int(regional.size()); ++i) {
@@ -364,6 +391,14 @@ bool append_extra_features(const Position& pos, const Descriptor& descriptor,
             extra.emplace_back(regionBase + std::uint32_t(i), regional[i]);
             mass += regional[i];
         }
+    }
+    if (descriptor.version == 3) {
+        const std::uint32_t relBase = regionBase + std::uint32_t(6 * count);
+        for (int i = 0; i < int(relative.size()); ++i)
+            if (relative[i]) {
+                extra.emplace_back(relBase + std::uint32_t(i), relative[i]);
+                mass += relative[i];
+            }
     }
     if (mass > MaximumFeatureMass)
         return false;
@@ -480,12 +515,12 @@ std::string variant_name(const Variant* variant) {
     return {};
 }
 
-std::string descriptor_json(const Variant* variant, bool v2) {
-    const auto descriptor = describe(variant, v2);
+std::string descriptor_json(const Variant* variant, std::uint32_t version) {
+    const auto descriptor = describe(variant, version);
     std::ostringstream stream;
     stream << "{\"supported\":" << (descriptor.name.empty() ? "false" : "true")
-           << ",\"format_version\":" << (v2 ? V2FormatVersion : FormatVersion)
-           << ",\"feature_version\":" << (v2 ? V2FeatureVersion : FeatureVersion)
+           << ",\"format_version\":" << version
+           << ",\"feature_version\":" << version
            << ",\"variant\":" << quote(variant_name(variant))
            << ",\"rules_sha256\":" << quote(STOCKLESS_NNUE_RULES_SHA256)
            << ",\"width\":" << descriptor.width << ",\"height\":" << descriptor.height
@@ -502,12 +537,12 @@ std::string descriptor_json(const Variant* variant, bool v2) {
     return stream.str();
 }
 
-std::vector<std::pair<std::uint32_t, std::int32_t>> sparse_features(const Position& pos, bool v2) {
+std::vector<std::pair<std::uint32_t, std::int32_t>> sparse_features(const Position& pos, std::uint32_t version) {
     std::vector<std::pair<std::uint32_t, std::int32_t>> result;
     std::int32_t mass = 0;
-    const auto descriptor = describe(pos.variant(), v2);
+    const auto descriptor = describe(pos.variant(), version);
     if (!extract(pos, descriptor, result, mass)
-            || (v2 && !append_extra_features(pos, descriptor, result, mass)))
+            || (version >= 2 && !append_extra_features(pos, descriptor, result, mass)))
         result.clear();
     else
         std::sort(result.begin(), result.end());
@@ -518,7 +553,7 @@ bool load_network(const std::string& path, const Variant* variant, std::string& 
     error.clear();
     auto descriptor = describe(variant);
     if (descriptor.name.empty()) {
-        error = "SVNNUE-v1/v2 does not support this variant";
+        error = "SVNNUE-v1/v2/v3 does not support this variant";
         return false;
     }
     std::ifstream input(path, std::ios::binary | std::ios::ate);
@@ -539,13 +574,14 @@ bool load_network(const std::string& path, const Variant* variant, std::string& 
     }
     const bool oldFormat = std::equal(std::begin(Magic), std::end(Magic), bytes.begin());
     const bool newFormat = std::equal(std::begin(MagicV2), std::end(MagicV2), bytes.begin());
-    if (!oldFormat && !newFormat) {
-        error = "unsupported network magic; expected independent SVNNUE-v1/v2";
+    const bool relationalFormat = std::equal(std::begin(MagicV3), std::end(MagicV3), bytes.begin());
+    if (!oldFormat && !newFormat && !relationalFormat) {
+        error = "unsupported network magic; expected independent SVNNUE-v1/v2/v3";
         return false;
     }
-    descriptor = describe(variant, newFormat);
-    const std::uint32_t expected[] = {newFormat ? V2FormatVersion : FormatVersion,
-                                      newFormat ? V2FeatureVersion : FeatureVersion,
+    const std::uint32_t version = oldFormat ? 1u : newFormat ? 2u : 3u;
+    descriptor = describe(variant, version);
+    const std::uint32_t expected[] = {version, version,
                                       Hidden, descriptor.dimensions,
                                      std::uint32_t(descriptor.width), std::uint32_t(descriptor.height),
                                      std::uint32_t(descriptor.types.size()), QA, QB};
@@ -658,7 +694,7 @@ std::string status_json(const Variant* variant) {
            << ",\"generation\":" << network_generation
            << ",\"variant\":" << quote(variant_name(variant))
            << ",\"model_variant\":" << quote(model ? model->descriptor.name : "")
-           << ",\"model_format_version\":" << (model ? (model->descriptor.v2 ? 2 : 1) : 0)
+           << ",\"model_format_version\":" << (model ? model->descriptor.version : 0)
            << ",\"rules_sha256\":" << quote(STOCKLESS_NNUE_RULES_SHA256)
            << ",\"file\":" << quote(model ? model->file : "")
 #if defined(USE_AVX2)
