@@ -13,7 +13,7 @@ Each phase is accepted using its own build/test evidence. A checked-in workflow 
 | 7. NNUE and strength | Classical fallback and incompatible-network rejection | Datasets, rule/network manifests, trainers, quantization and measured strength |
 | 8. Logo/GUI | Engine/frontend separation maintained | Original SVG brand and piece assets, board GUI |
 | 9. Large-scale validation | Reproducible regression harness and bounded play | Long matches, race detection, paired statistics and opponent/network/hardware manifests |
-| 10. Multi-platform release | Linux/Windows/Android CI and corresponding-source package tools | Successful platform evidence, Android device tests, stable-release approvals |
+| 10. Multi-platform release | Five successful Linux/Windows/Android build jobs and verified corresponding-source development packages | Android device tests and stable-release approvals |
 
 ## Future data/network manifest
 

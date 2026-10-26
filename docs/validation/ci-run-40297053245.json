@@ -1,0 +1,606 @@
+{
+  "schema": 1,
+  "repository": "gaong5247-cmd/Stockless-variants",
+  "run": {
+    "id": 40297053245,
+    "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245",
+    "head_sha": "1ace3f06ffa878a4e4fd0e35985f07095224255d",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-10-26T09:06:42Z",
+    "updated_at": "2026-10-26T09:09:07Z"
+  },
+  "jobs": [
+    {
+      "id": 121485547042,
+      "name": "windows (x86-64-avx2)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/job/121485547042",
+      "black_box": {
+        "passed": 214,
+        "failed": 0
+      },
+      "protocol_validation": {
+        "passed": 24,
+        "failed": 0
+      },
+      "cpp_rules": null,
+      "policy": null,
+      "android_device_execution_tested": false,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run msys2/setup-msys2@v2",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Materialize pinned sources",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Compile Windows executable",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Run actual Windows protocol and rule tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Validate configuration and input handling",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Extract exact binary capabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Package corresponding source and verified executable",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23
+        }
+      ]
+    },
+    {
+      "id": 121485547418,
+      "name": "linux (x86-64)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/job/121485547418",
+      "black_box": {
+        "passed": 214,
+        "failed": 0
+      },
+      "protocol_validation": {
+        "passed": 24,
+        "failed": 0
+      },
+      "cpp_rules": {
+        "cases": 149,
+        "checks": 43037,
+        "transitions": 4692,
+        "failures": 0
+      },
+      "policy": {
+        "checks": 2581152,
+        "failures": 0
+      },
+      "android_device_execution_tested": false,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Materialize pinned sources and build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Actual C++ rules and policy regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Perft, protocol, bounded play and concurrency regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Strict configuration and input regression",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Validate custom definitions and upstream INI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Extract exact binary capabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Package corresponding source and verified executable",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23
+        }
+      ]
+    },
+    {
+      "id": 121485547435,
+      "name": "windows (x86-64)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/job/121485547435",
+      "black_box": {
+        "passed": 214,
+        "failed": 0
+      },
+      "protocol_validation": {
+        "passed": 24,
+        "failed": 0
+      },
+      "cpp_rules": null,
+      "policy": null,
+      "android_device_execution_tested": false,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run msys2/setup-msys2@v2",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Materialize pinned sources",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Compile Windows executable",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Run actual Windows protocol and rule tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Validate configuration and input handling",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Extract exact binary capabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Package corresponding source and verified executable",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23
+        }
+      ]
+    },
+    {
+      "id": 121485547452,
+      "name": "android",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/job/121485547452",
+      "black_box": null,
+      "protocol_validation": null,
+      "cpp_rules": null,
+      "policy": null,
+      "android_device_execution_tested": false,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install pinned NDK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Materialize and cross-compile ARM64 API 26",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Extract source capabilities (cross-compiled binary is not run on x64)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Package build-only Android executable and corresponding source",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        }
+      ]
+    },
+    {
+      "id": 121485547590,
+      "name": "linux (x86-64-avx2)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/job/121485547590",
+      "black_box": {
+        "passed": 214,
+        "failed": 0
+      },
+      "protocol_validation": {
+        "passed": 24,
+        "failed": 0
+      },
+      "cpp_rules": {
+        "cases": 149,
+        "checks": 43037,
+        "transitions": 4692,
+        "failures": 0
+      },
+      "policy": {
+        "checks": 2581152,
+        "failures": 0
+      },
+      "android_device_execution_tested": false,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Materialize pinned sources and build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Actual C++ rules and policy regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Perft, protocol, bounded play and concurrency regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Strict configuration and input regression",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Validate custom definitions and upstream INI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Extract exact binary capabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Package corresponding source and verified executable",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 12639240489,
+      "name": "stockless-variants-windows-x86-64",
+      "size_in_bytes": 1869697,
+      "digest": "sha256:9463cf954bc508487bc4d6a48fb6204d6a1cafd30845285dbd4c0736b5ceb094",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/artifacts/12639240489",
+      "expires_at": "2027-01-24T09:06:43Z"
+    },
+    {
+      "id": 12639065945,
+      "name": "stockless-variants-linux-x86-64-avx2",
+      "size_in_bytes": 1192584,
+      "digest": "sha256:3769677bbd4e82dab25f859d2ad40803dafee0724c8cffb50f8defa7110ae92e",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/artifacts/12639065945",
+      "expires_at": "2027-01-24T09:06:43Z"
+    },
+    {
+      "id": 12638966567,
+      "name": "stockless-variants-linux-x86-64",
+      "size_in_bytes": 1188556,
+      "digest": "sha256:baae42d342a01eacd8338607c04ab07f28b3f0d45d5d1161d929d1e60a4156d6",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/artifacts/12638966567",
+      "expires_at": "2027-01-24T09:06:43Z"
+    },
+    {
+      "id": 12638238459,
+      "name": "stockless-variants-windows-x86-64-avx2",
+      "size_in_bytes": 1890374,
+      "digest": "sha256:25d8585763d971ddcdd03ec7ea4074f643f3a3830e016f3799c61b428dfa4e9e",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/artifacts/12638238459",
+      "expires_at": "2027-01-24T09:06:43Z"
+    },
+    {
+      "id": 12638213195,
+      "name": "stockless-variants-android-arm64",
+      "size_in_bytes": 1386502,
+      "digest": "sha256:236ea52a9f0fb880c975e3e1f0ea5e41d3071a35fabfab3caf0b2516be4fcde6",
+      "url": "https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245/artifacts/12638213195",
+      "expires_at": "2027-01-24T09:06:43Z"
+    }
+  ],
+  "scope_notes": [
+    "Linux and Windows binaries were executed in hosted runners.",
+    "Android ARM64 API 26 was cross-compiled and ELF architecture checked; no Android device execution.",
+    "Development artifacts only; no stable release or Elo claim."
+  ],
+  "downloaded_package_checks": [
+    {
+      "platform": "linux",
+      "commit": "1ace3f06ffa878a4e4fd0e35985f07095224255d",
+      "engine_sha256": "5ca1b2249a4f64ec16489fb9e1cba3666e4696efdebcec833eac382c375e7202",
+      "working_tree_dirty": false,
+      "all_manifest_file_hashes_match": true,
+      "runtime_tested_in_package": true,
+      "architecture_verified": null,
+      "reports_match_binary_hash": true
+    },
+    {
+      "platform": "windows",
+      "commit": "1ace3f06ffa878a4e4fd0e35985f07095224255d",
+      "engine_sha256": "0407a574d83e9f6d16004af269557d6434768a3f1144bffd88f8e4d8b9b66caa",
+      "working_tree_dirty": false,
+      "all_manifest_file_hashes_match": true,
+      "runtime_tested_in_package": true,
+      "architecture_verified": "PE32+ x86-64",
+      "reports_match_binary_hash": true
+    },
+    {
+      "platform": "android",
+      "commit": "1ace3f06ffa878a4e4fd0e35985f07095224255d",
+      "engine_sha256": "fe4ad6cdf8d301d580325fc82438c38f4ef2e203a94b7d6981b2fb49fecdad21",
+      "working_tree_dirty": false,
+      "all_manifest_file_hashes_match": true,
+      "runtime_tested_in_package": false,
+      "architecture_verified": "ELF64 AArch64",
+      "reports_match_binary_hash": null
+    }
+  ]
+}

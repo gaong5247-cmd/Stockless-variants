@@ -4,6 +4,11 @@
 
 This repository is independent of [Stockless](https://github.com/gaong5247-cmd/Stockless). It does not change that project's main branch or releases. Version `0.1.0-dev` is a first executable engineering milestone, **not a strength-certified universal engine or a stable release**.
 
+**[Download the five successful development builds](docs/DOWNLOADS.md)** ·
+[Actual CI and local validation](docs/VALIDATION.md) ·
+[Supported-rule inventory](docs/VARIANTS.md) ·
+[Known limitations](docs/LIMITATIONS.md)
+
 ## What is implemented
 
 - Pinned, reproducible source materialization from two direct Git submodules; no changes to their source trees.

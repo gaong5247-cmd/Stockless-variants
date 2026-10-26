@@ -21,6 +21,13 @@ Timing from this environment must not be represented as a hardware-independent
 performance result. Machine details and sanitizer build identity are in the
 [core summary](validation/linux-core-summary.json).
 
+The commit above is the local core-build identity. Publication through the
+connected GitHub app produced public commit
+[`1ace3f06ffa878a4e4fd0e35985f07095224255d`](https://github.com/gaong5247-cmd/Stockless-variants/commit/1ace3f06ffa878a4e4fd0e35985f07095224255d).
+Its complete tree, `cb4a7666349bce8880d03470e04e345fdc8bd22a`, exactly matches
+the locally prepared publication tree. The public commit was independently
+rebuilt and tested on hosted runners as recorded below.
+
 ## Completed checks
 
 | Suite | Result | Scope |
@@ -109,12 +116,32 @@ python3 tools/compile_rule_tests.py --source build/sanitized/src \
 
 ## Platform and release boundaries
 
-The [GitHub Actions workflow](../.github/workflows/build.yml) builds Linux and
-Windows generic/AVX2 executables and an Android ARM64 API 26 executable. Actual
-job outcomes belong to the corresponding
-[Actions run](https://github.com/gaong5247-cmd/Stockless-variants/actions).
-Workflow presence alone is not proof of success. Android's job cross-compiles
-and verifies ELF architecture; it does not execute on a physical Android device.
+**All five jobs passed** in
+[Actions run 40297053245](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40297053245),
+building public commit `1ace3f06ffa878a4e4fd0e35985f07095224255d`.
+The run completed on 2026-10-26 at 09:09:07 UTC.
+
+| Hosted target | Actual result |
+| --- | --- |
+| Linux x64 | C++ suites above, 214 black-box cases, 24 input/configuration checks, package verification: passed |
+| Linux x64 AVX2 | Same C++ and runtime suites, package verification: passed |
+| Windows x64 | 214 black-box cases, 24 input/configuration checks, package verification: passed |
+| Windows x64 AVX2 | Same runtime suites, package verification: passed |
+| Android ARM64 API 26 | NDK 27.2.12479018 cross-compilation, AArch64 ELF and package verification: passed |
+
+The CI black-box count is lower than the local 355-case run because CI does not
+build the independent reference executable or enable the largest `--full-perft`
+cases. Both scopes are preserved rather than conflated. Windows runs the actual
+executable but not the Linux C++ harness. Android does **not** run on a physical
+device or Android GUI in this workflow.
+
+The Linux generic, Windows generic and Android artifacts were then downloaded
+and their packaged manifest file hashes independently checked. Report hashes
+match the Linux/Windows executable hashes. Windows is PE32+ x86-64; Android is
+ELF64 AArch64 and explicitly records `runtime_tested_in_this_package=false`.
+The corresponding-source archives preserve the platform build recipes.
+See the [machine-readable CI record](validation/ci-run-40297053245.json) and
+[development downloads](DOWNLOADS.md).
 
 Packages bind reports/catalogs to the exact executable hash and supply complete
 corresponding generated source. A failed or mismatched report cannot be used
