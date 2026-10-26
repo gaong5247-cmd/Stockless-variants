@@ -9,6 +9,7 @@ on:
       - 'tools/patch_training.py'
       - '.github/workflows/nnue-v2-experimental.yml'
       - 'tests/nnue_v2_contract_test.py'
+      - 'tests/v2_native_features_test.py'
   workflow_dispatch:
 
 permissions:
@@ -41,6 +42,14 @@ jobs:
         run: python tests/nnue_v2_contract_test.py
       - name: Build actual C++ rule and v1/v2 NNUE engine
         run: make build ARCH=x86-64 JOBS=2
+      - name: Audit native v2 castling rights and unchanged v1 features
+        if: matrix.variant == 'chess'
+        run: python tests/v2_native_features_test.py --engine build/engine/src/stockless-variants
+      - name: Regress original v1 C++ network loader, model replacement and accumulators
+        if: matrix.variant == 'chess'
+        run: |
+          python tests/build_cpp_tests.py --out build/nnue-tests
+          python tests/nnue_validation_test.py             --engine build/engine/src/stockless-variants             --cpp-test build/nnue-tests/nnue_test             --fixture-dir build/v1-fixtures --report build/v1-compat.json
       - name: Generate native games and versioned extra features from C++ Position
         run: |
           python tools/nnue/generate.py \
