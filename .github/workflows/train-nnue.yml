@@ -1,0 +1,191 @@
+name: Train experimental variant NNUE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/train-nnue.yml'
+      - 'tools/nnue/**'
+      - 'src/**'
+      - 'tools/materialize.py'
+      - 'tools/patch_*.py'
+      - 'upstream.lock.json'
+      - 'upstream/fairy-stockfish'
+      - 'upstream/stockless'
+      - '.gitmodules'
+      - 'tests/nnue*'
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: Independent network to train
+        type: choice
+        options: [all, chess, shogi, janggi, xiangqi, makruk]
+        default: all
+      games:
+        description: Self-play games per variant (6 to 256)
+        type: number
+        default: 64
+      max_plies:
+        description: Maximum plies per game; unfinished games remain censored (16 to 256)
+        type: number
+        default: 120
+      depth:
+        description: Classical teacher search depth (1 to 6)
+        type: number
+        default: 3
+      epochs:
+        description: Training epochs (1 to 500)
+        type: number
+        default: 80
+      seed:
+        description: Reproducible unsigned 32-bit seed
+        type: number
+        default: 20261026
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nnue-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      variants: ${{ steps.settings.outputs.variants }}
+      games: ${{ steps.settings.outputs.games }}
+      max_plies: ${{ steps.settings.outputs.max_plies }}
+      depth: ${{ steps.settings.outputs.depth }}
+      epochs: ${{ steps.settings.outputs.epochs }}
+      seed: ${{ steps.settings.outputs.seed }}
+    steps:
+      - name: Validate bounded CPU experiment inputs
+        id: settings
+        env:
+          REQUESTED_VARIANT: ${{ inputs.variant }}
+          REQUESTED_GAMES: ${{ inputs.games }}
+          REQUESTED_MAX_PLIES: ${{ inputs.max_plies }}
+          REQUESTED_DEPTH: ${{ inputs.depth }}
+          REQUESTED_EPOCHS: ${{ inputs.epochs }}
+          REQUESTED_SEED: ${{ inputs.seed }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          variants = ['chess', 'shogi', 'janggi', 'xiangqi', 'makruk']
+          selected = os.environ.get('REQUESTED_VARIANT') or 'all'
+          if selected != 'all' and selected not in variants:
+              raise SystemExit('Unsupported training variant')
+          settings = {'variants': json.dumps(variants if selected == 'all' else [selected])}
+          bounds = {'games': (32, 6, 256), 'max_plies': (80, 16, 256),
+                    'depth': (3, 1, 6), 'epochs': (40, 1, 500), 'seed': (20261026, 0, 2**32 - 1)}
+          for name, (default, low, high) in bounds.items():
+              raw = os.environ.get('REQUESTED_' + name.upper(), '')
+              value = int(raw) if raw else default
+              if not low <= value <= high:
+                  raise SystemExit(f'{name} must be {low}..{high}')
+              settings[name] = value
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for name, value in settings.items():
+                  print(f'{name}={value}', file=output)
+          print(json.dumps(settings))
+          PY
+
+  train:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: ${{ fromJSON(needs.prepare.outputs.variants) }}
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      NNUE_VARIANT: ${{ matrix.variant }}
+      NNUE_GAMES: ${{ needs.prepare.outputs.games }}
+      NNUE_MAX_PLIES: ${{ needs.prepare.outputs.max_plies }}
+      NNUE_DEPTH: ${{ needs.prepare.outputs.depth }}
+      NNUE_EPOCHS: ${{ needs.prepare.outputs.epochs }}
+      NNUE_SEED: ${{ needs.prepare.outputs.seed }}
+      NNUE_DIR: build/nnue-experiment/${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned CPU trainer dependency
+        run: python -m pip install --requirement tools/nnue/requirements.txt
+      - name: Build exact teacher and experimental NNUE runtime
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Compile native accumulator regression harness
+        run: python tests/build_cpp_tests.py --out build/nnue-tests
+      - name: Check loader, integer inference, SIMD-compatible arithmetic and make/unmake
+        run: python tests/nnue_validation_test.py --engine build/engine/src/stockless-variants --cpp-test build/nnue-tests/nnue_test --fixture-dir build/nnue-fixtures --report build/nnue-tests.json
+      - name: Check label provenance and heldout split protection
+        run: python tests/nnue_data_test.py
+      - name: Generate independent native self-play data
+        run: |
+          python tools/nnue/generate.py --engine build/engine/src/stockless-variants \
+            --variant "$NNUE_VARIANT" --games "$NNUE_GAMES" --max-plies "$NNUE_MAX_PLIES" \
+            --depth "$NNUE_DEPTH" --seed "$NNUE_SEED" --output "$NNUE_DIR/data"
+      - name: Train, choose validation checkpoint and quantize
+        run: |
+          python tools/nnue/train.py --data "$NNUE_DIR/data" --output "$NNUE_DIR/model" \
+            --epochs "$NNUE_EPOCHS" --seed "$NNUE_SEED"
+      - name: Load trained file in actual engine and verify heldout inference/search
+        run: |
+          python tools/nnue/validate.py --engine build/engine/src/stockless-variants \
+            --data "$NNUE_DIR/data" --model-dir "$NNUE_DIR/model" \
+            --report "$NNUE_DIR/runtime-validation.json"
+      - name: Package compatible engine with complete corresponding source
+        run: |
+          python tools/catalog_variants.py --engine build/engine/src/stockless-variants --require-all-builtins
+          python tools/package.py --engine build/engine/src/stockless-variants \
+            --platform linux --arch x86-64 --report build/nnue-tests.json \
+            --report "$NNUE_DIR/runtime-validation.json"
+          mkdir -p "$NNUE_DIR/engine"
+          cp dist/*.zip dist/*.sha256 "$NNUE_DIR/engine/"
+          cp LICENSE NOTICE.md "$NNUE_DIR/"
+          mkdir -p "$NNUE_DIR/training-tools"
+          cp tools/nnue/*.py tools/nnue/requirements.txt "$NNUE_DIR/training-tools/"
+          cp .github/workflows/train-nnue.yml "$NNUE_DIR/training-tools/"
+      - name: Summarize measured experiment (no Elo claim)
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['NNUE_DIR'])
+          lines = ['## ' + os.environ['NNUE_VARIANT'] + ' experimental NNUE',
+                   'Classical-search teacher; separate variant model; not enabled by default.']
+          metrics = root / 'model/metrics.json'
+          if metrics.exists():
+              m = json.loads(metrics.read_text())
+              lines += [f"Gradient steps: {m['gradient_steps']}; selected epoch: {m['selected_epoch']}.",
+                        f"Heldout float MAE: {m['final_float']['test']['mae_cp']:.3f} engine cp.",
+                        f"Quantization MAE: {m['quantization_error']['test']['mae_cp']:.3f} cp; gate: {m['quantization_passed']}.",
+                        f"Validation improved over initialization: {m['validation_improved_from_initial']}.",
+                        'These are approximation errors against the teacher, not playing-strength results.']
+          runtime = root / 'runtime-validation.json'
+          if runtime.exists():
+              r = json.loads(runtime.read_text())
+              lines.append(f"Native trained-model checks: {r['passed']} passed, {r['failed']} failed.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('\n\n'.join(lines) + '\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nnue-${{ matrix.variant }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            build/nnue-experiment/${{ matrix.variant }}/
+            build/nnue-tests.json
+          retention-days: 30
+          if-no-files-found: error

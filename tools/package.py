@@ -99,7 +99,8 @@ def main() -> None:
                 "working_tree_dirty": manifest.get("working_tree_dirty", True),
                 "status": "experimental-development-build", "platform": args.platform,
                 "architecture": args.arch, "engine_sha256": sha256(engine),
-                "evaluation": "classical", "upstream": manifest["upstream"],
+                "evaluation": "classical", "nnue": manifest.get("nnue"),
+                "upstream": manifest["upstream"],
                 "validation_files": [p.name for p in args.report],
                 "runtime_tested_in_this_package": bool(args.report),
                 "files": {p.relative_to(stage).as_posix(): sha256(p) for p in sorted(stage.rglob("*")) if p.is_file()}}

@@ -31,6 +31,8 @@ jobs:
         run: make build ARCH=${{ matrix.arch }} JOBS=2
       - name: Actual C++ rules and policy regressions
         run: python tools/compile_rule_tests.py --arch ${{ matrix.arch }}
+      - name: Independent neural model loader and accumulator regressions
+        run: python tests/nnue_validation_test.py --engine build/engine/src/stockless-variants --cpp-test build/engine/tests/nnue_test --fixture-dir build/nnue-fixtures --report build/nnue-tests.json
       - name: Perft, protocol, bounded play and concurrency regressions
         run: python tests/run_engine_tests.py --engine build/engine/src/stockless-variants --report build/engine-tests.json
       - name: Strict configuration and input regression
@@ -42,7 +44,7 @@ jobs:
       - name: Extract exact binary capabilities
         run: python tools/catalog_variants.py --engine build/engine/src/stockless-variants --validation build/engine-tests.json --require-all-builtins
       - name: Package corresponding source and verified executable
-        run: python tools/package.py --engine build/engine/src/stockless-variants --platform linux --arch ${{ matrix.arch }} --report build/engine-tests.json --report build/protocol-tests.json
+        run: python tools/package.py --engine build/engine/src/stockless-variants --platform linux --arch ${{ matrix.arch }} --report build/engine-tests.json --report build/protocol-tests.json --report build/nnue-tests.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -80,10 +82,12 @@ jobs:
         run: python tests/run_engine_tests.py --engine build/engine/src/stockless-variants.exe --report build/windows-tests.json
       - name: Validate configuration and input handling
         run: python tests/protocol_validation_test.py --engine build/engine/src/stockless-variants.exe --report build/protocol-tests.json
+      - name: Independent neural file and integer inference regression
+        run: python tests/nnue_validation_test.py --engine build/engine/src/stockless-variants.exe --fixture-dir build/nnue-fixtures --report build/nnue-tests.json
       - name: Extract exact binary capabilities
         run: python tools/catalog_variants.py --engine build/engine/src/stockless-variants.exe --validation build/windows-tests.json --require-all-builtins
       - name: Package corresponding source and verified executable
-        run: python tools/package.py --engine build/engine/src/stockless-variants.exe --platform windows --arch ${{ matrix.arch }} --report build/windows-tests.json --report build/protocol-tests.json
+        run: python tools/package.py --engine build/engine/src/stockless-variants.exe --platform windows --arch ${{ matrix.arch }} --report build/windows-tests.json --report build/protocol-tests.json --report build/nnue-tests.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

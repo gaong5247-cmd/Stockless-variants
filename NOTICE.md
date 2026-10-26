@@ -41,9 +41,20 @@ including the pinned sources, overlays, configuration, and build scripts.
   `docs/RULE_FIXES.md`; modified source files carry dated change notices.
 - Add capability metadata, rule/invariant/protocol tests, reproducible build
   tooling, and platform packaging.
+- Add an independent SVNNUE-v1 integer evaluator, native board/pocket feature
+  export, incremental scalar/AVX2 accumulation, checked model loading, and
+  separate CPU training/quantization/validation tools for chess, Shogi, Janggi,
+  Xiangqi and Makruk. These are new project code under the repository's AGPL
+  terms; the upstream Stockfish/FSF network architectures and weights are not
+  reused as this model format. NumPy is a separately installed training-only
+  dependency and is not linked into the C++ engine.
 
-No upstream logo, Chess.com artwork, private server code, or network weights are
-included. No new Elo or strength claim is implied by reusing upstream code.
+No upstream logo, Chess.com artwork, private server code, or upstream pretrained
+network weights are included. Independently generated experimental `.svnnue`
+artifacts carry their own dataset/teacher/file identities and declared license
+in a model manifest; their provenance and validation are described in
+`docs/NNUE.md`. No new Elo or strength claim is implied by reusing upstream code
+or by training these models.
 
 ## Credits
 

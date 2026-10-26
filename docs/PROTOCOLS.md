@@ -67,7 +67,40 @@ Feature negotiation, variant lists, engine moves, ping/pong and the existing par
 
 ## Evaluation and errors
 
-`EvalBackend` offers `Classical` and `Auto`; both currently resolve to the classical evaluator. `Use NNUE=true` produces an explicit error and remains false. There is no misleading silently accepted incompatible network backend.
+`EvalBackend` offers three choices:
+
+| Backend | Behavior |
+| --- | --- |
+| `Classical` | Default; uses the native variant evaluator even if a neural file is loaded |
+| `Auto` | Uses a loaded compatible SVNNUE-v1 model for an applicable position; otherwise uses classical evaluation |
+| `StocklessNNUE` | Requires a successfully loaded model for the selected native variant; incompatible position modes still use the classical fallback |
+
+The independent SVNNUE-v1 backend supports the exact native definitions `chess`, `shogi`, `janggi`, `xiangqi` and `makruk`. Chess960 mode, other variants and custom clones are outside this model contract. Use a separately trained file for each variant:
+
+```text
+uci
+setoption name UCI_Variant value chess
+setoption name EvalFile value /path/to/chess.svnnue
+setoption name EvalBackend value StocklessNNUE
+position startpos
+nnuestatus
+nnueeval
+go depth 4
+```
+
+Loading `EvalFile` alone does not activate a model while `Classical` is selected. The loader checks the binary format, variant, dimensions, rule/feature-source digest, integer bounds and payload checksum. A failed load preserves the previous model and backend. Selecting a different incompatible variant disables an explicitly selected `StocklessNNUE` backend; load that variant's own model before reactivating it.
+
+`Use NNUE=true` still selects the unsupported upstream FSF network path: it produces an error and remains false. Independent `.svnnue` models use `EvalBackend`, and Stockfish/FSF `.nnue` files are rejected. See [NNUE.md](NNUE.md) for training, model provenance and the feature limitations.
+
+The synchronized diagnostic commands return a single JSON-bearing line:
+
+| Command | Response prefix and purpose |
+| --- | --- |
+| `nnuestatus` | `info string NNUE_STATUS` — selected backend and loaded model identity |
+| `nnueeval` | `info string NNUE_EVAL` — whether this position actually used the model, raw scores and incremental/full-refresh agreement |
+| `nnuefeatures` | `info string NNUE_FEATURES` — native descriptor, sparse features, legal moves and signed terminal result; standard `uci` dialect only |
+
+`nnueeval` reports the raw neural score before ordinary evaluation applies native draw scaling and score bounds. `nnuefeatures` preserves the live position's history for adjudication; a truncated self-play game is not a draw. These are engine diagnostics, not additional standard UCI requirements.
 
 Invalid option values, unknown variants, invalid FEN/SFEN/moves and invalid INI definitions are reported. A malformed position command must not leave a partially applied move list. Mutating UCI commands stop and join an active search before changing shared state.
 

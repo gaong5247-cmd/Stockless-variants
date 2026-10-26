@@ -54,8 +54,9 @@ def materialize(out: Path) -> dict:
     # These two policy/configuration files are copied byte-for-byte from v0.9.0.
     for name in ("config.h", "search_policy.h"):
         shutil.copy2(stockless / "src/stockless" / name, overlay / name)
-    for path in (ROOT / "src/stockless_variants").glob("*.h"):
-        shutil.copy2(path, overlay / path.name)
+    for path in (ROOT / "src/stockless_variants").iterdir():
+        if path.suffix in (".h", ".cpp"):
+            shutil.copy2(path, overlay / path.name)
 
     search = out / "src/search.cpp"
     replace_once(search, '#include "search.h"\n', '#include "search.h"\n#include "stockless_core/search_policy.h"\n#include "stockless_core/variant_policy.h"\n')
@@ -123,6 +124,29 @@ def materialize(out: Path) -> dict:
     patch_rules(out)
     from patch_pocket_keys import apply as patch_pocket_keys
     patch_pocket_keys(out)
+    from patch_nnue import apply as patch_nnue
+    patch_nnue(out)
+    from patch_training import apply as patch_training
+    patch_training(out)
+
+    # Conservative rule/layout identity for separately trained networks. Normalize
+    # line endings so the same pinned source accepts the same model on Windows,
+    # Linux and Android. misc.cpp carries a build-specific version/commit string;
+    # it does not define rules or NNUE features and is deliberately excluded.
+    rule_sources = {
+        p.relative_to(out).as_posix(): hashlib.sha256(
+            p.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+        for p in sorted((out / "src").rglob("*"))
+        if p.is_file() and p.suffix in (".h", ".cpp") and p.name not in ("misc.cpp", "nnue_rules.h")
+    }
+    rules_sha256 = hashlib.sha256(json.dumps(
+        {"format": "SVNNUE-v1", "sources": rule_sources,
+         "upstream": {name: item["revision"] for name, item in lock.items()}},
+        sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    (overlay / "nnue_rules.h").write_text(
+        '// Generated from pinned native rules and NNUE feature/runtime source.\n'
+        '#pragma once\n'
+        f'#define STOCKLESS_NNUE_RULES_SHA256 "{rules_sha256}"\n', encoding="utf-8")
 
     # Preserve upstream copyright/license headers and visibly identify modified
     # upstream files (GPLv3 section 5(a)). Copied Stockless headers stay exact.
@@ -137,7 +161,10 @@ def materialize(out: Path) -> dict:
 
     manifest = {"version": version, "commit": sha, "working_tree_dirty": dirty, "upstream": lock,
                 "default_evaluation": "classical", "largeboards": True,
-                "all_variants": True, "status": "experimental", "modified_upstream_files": modified}
+                "all_variants": True, "status": "experimental", "modified_upstream_files": modified,
+                "nnue": {"format": "SVNNUE-v1", "rules_sha256": rules_sha256,
+                         "variants": ["chess", "shogi", "janggi", "xiangqi", "makruk"],
+                         "default_enabled": False}}
     manifest["source_files"] = {
         p.relative_to(out).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted((out / "src").rglob("*")) if p.is_file()

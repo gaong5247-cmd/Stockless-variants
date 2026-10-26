@@ -1,6 +1,6 @@
 # Explicit implementation limits
 
-This is `0.1.0-dev`, not a stable universally validated release.
+This is `0.2.0-dev`, not a stable universally validated release. Historical `0.1.0-dev` reports describe their own binaries and do not validate the new neural models.
 
 ## Rules and architecture
 
@@ -24,8 +24,11 @@ This is `0.1.0-dev`, not a stable universally validated release.
 
 ## Evaluation and strength
 
-- Only classical evaluation is enabled. No Stockless/Stockfish neural file is repurposed for Shogi, Janggi or Xiangqi.
-- No variant-specific training pipeline, teacher dataset, quantization validation, new accumulator or compatible network manifest has been delivered.
+- Classical evaluation remains the default. An independent, opt-in SVNNUE-v1 backend and CPU NumPy training pipeline now exist for the exact native `chess`, `shogi`, `janggi`, `xiangqi` and `makruk` definitions. Each game requires its own compatible model; Stockless/Stockfish/FSF pretrained files are not repurposed.
+- SVNNUE-v1 has a compact 64-unit hidden layer with board-piece indicators, pocket counts and side-to-move-selected output heads. Features do not encode promoted-piece origin, castling rights, en-passant rights, repetition history, or rule counters. Identical inputs can therefore correspond to different complete rule states. Native legal-move and terminal logic still uses the full position/history.
+- Chess960 mode, custom rule clones and the remaining variants use classical evaluation. Even related Shogi/Janggi variants are not automatically compatible with a standard-game model.
+- The pipeline generates seeded classical-teacher self-play, separates complete games before deduplication, quantizes independent models and checks their actual native inference. Incremental accumulation has generic scalar and AVX2 paths; dedicated ARM NEON optimization is not implemented.
+- Training uses bounded teacher-score regression, with explicit clipping and mate targets. Game outcomes are recorded but are not used in the current loss. Max-plies truncations retain null outcomes; optional native result claims can be wins or losses. These metrics do not establish calibration, general playing strength or superiority over classical evaluation. See [NNUE.md](NNUE.md).
 - Original Stockless's measured chess results do not transfer to this engine, this evaluator or any regional variant.
 - No Elo rating or improvement is claimed. Bounded test playouts are correctness exercises, not a strength match.
 
@@ -34,5 +37,6 @@ This is `0.1.0-dev`, not a stable universally validated release.
 - The engine has no graphical board, SVG piece catalog or new brand artwork yet.
 - Android CI cross-compiles an ARM64 native executable and checks ELF architecture. Physical-device execution, host-GUI protocol compatibility and sustained thermal behavior are separate pending tests.
 - Linux/Windows runtime tests and packaging status must be read from the corresponding Actions run and supplied report. A workflow definition alone is not a successful build.
+- The CPU training workflow records data, models, metrics and runtime checks separately per variant. Its presence alone is not evidence that a remote experiment has completed; inspect the exact run and artifact identities.
 - Perft agreement with the pinned FSF source is valuable regression evidence but not independent proof of all game rules.
 - Long-time-control matches, statistically meaningful paired strength tests and exhaustive multi-thread race checking remain pending.

@@ -1,0 +1,2 @@
+# CPU-only experimental trainer; matches the recorded local environment.
+numpy==2.3.5

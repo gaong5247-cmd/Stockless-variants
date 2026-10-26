@@ -5,7 +5,7 @@ Exact source pins and license roles are recorded in [NOTICE](../NOTICE.md).
 
 ## Actual source/build comparison
 
-| Area | Stockless v0.9.0 source | Fairy-Stockfish pinned source | First integration decision |
+| Area | Stockless v0.9.0 source | Fairy-Stockfish pinned source | Initial 0.1.0 integration decision |
 | --- | --- | --- | --- |
 | Source structure | Pinned Stockfish and Reckless submodules, three Stockless headers, `tools/materialize.py` overlay | Standalone C++ variant engine with bindings | Materialize the pinned FSF tree and apply a reviewable Stockless policy overlay |
 | Rules/position | Orthodox Stockfish geometry and move representation | `Variant`, `VariantMap`, `PieceMap`, `position.*`, `movegen.cpp`, Betza parser | Reuse FSF native rules and large-board representation |
@@ -70,11 +70,35 @@ make every imaginable Betza extension implementable.
 
 ## Evaluation and protocol boundaries
 
-No NNUE weights are bundled, downloaded implicitly, or borrowed across games.
-The initial validated backends are `Classical` and `Auto` (which selects
-Classical). Raw `Use NNUE=true` / `EvalFile` activation is explicitly rejected
-until variant/architecture/rule-version compatibility manifests are implemented.
-The existing FSF NNUE architecture remains in the source for later work.
+The `0.1.0-dev` baseline shipped no neural weights and rejected neural activation;
+its `Classical` and `Auto` selections both used classical evaluation. Those
+historical results and the upstream architecture comparison above are unchanged.
+The existing FSF NNUE architecture remains in the source, but its pretrained
+format is not the new project's training or loading contract.
+
+### Independent SVNNUE-v1 addition in 0.2.0-dev
+
+`src/stockless_variants/nnue.*` adds an independent compact integer network with
+64 hidden units, separate side-to-move output heads, and native board/pocket
+features. Only `chess`, `shogi`, `janggi`, `xiangqi` and `makruk` are training
+targets. Models are separate per variant, and the binary header binds their
+architecture, geometry, source-derived rule/feature digest and payload checksum.
+Neither a matching filename nor a matching input dimension is sufficient.
+
+`EvalBackend=Classical` remains the default. `EvalFile` accepts a compatible
+`.svnnue` model; explicit `StocklessNNUE` activation or `Auto` selects it when
+applicable. Raw `Use NNUE=true` and Stockfish/FSF `.nnue` files remain unsupported.
+Model loading and backend changes join search and invalidate affected caches.
+
+`training_export.h` reads features directly from the native `Position`.
+`tools/nnue/` supplies seeded classical-teacher data generation, CPU NumPy
+training, whole-game holdouts, quantization and native model-validation tools.
+Its compact features omit promoted-piece lineage, castling/en-passant rights
+and history/counters; the full native rule state still controls legal moves and
+results. The network is an experimental evaluator, with no implied inheritance
+of Stockless's chess strength. See [NNUE.md](NNUE.md) for the current format and
+experiment evidence. This addition does not retroactively change baseline
+test counts or establish a successful remote training run.
 
 UCI/UCCI/USI commands that mutate a position, rule table, hash, or thread setting
 stop and join an active search first. Full FEN/SFEN plus move sequences are
@@ -132,7 +156,8 @@ search against a fresh engine using the second definition.
 
 - A full port of current Stockfish search/runtime/time-management internals.
 - Joint multi-board, multiplayer, incomplete-information, and spell-game engines.
-- Variant-specific training pipelines and validated NNUE weight manifests.
+- Large, representative training corpora; richer variant features; tournament-
+  qualified neural models and measured strength beyond the five-target CPU pilot.
 - Exhaustive official tournament-rule equivalence, long matches, and strength
   measurement for every inherited or configurable variant.
 - GUI assets and game interfaces beyond the engine protocol boundary.

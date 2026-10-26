@@ -36,7 +36,7 @@ def main() -> int:
         flags += ["-DUSE_POPCNT", "-DUSE_AVX2", "-DUSE_SSE41", "-DUSE_SSSE3",
                   "-msse3", "-mpopcnt", "-mavx2", "-mbmi", "-msse4.1", "-mssse3"]
     flags += args.extra_flag
-    for name in ["rules_test"] + ([] if args.reference else ["policy_test"]):
+    for name in ["rules_test"] + ([] if args.reference else ["policy_test", "nnue_test"]):
         subprocess.run(flags + [str(ROOT / "tests" / (name + ".cpp")), *objects,
                                "-pthread", "-o", str(args.out / name)], check=True)
     if not args.reference:
