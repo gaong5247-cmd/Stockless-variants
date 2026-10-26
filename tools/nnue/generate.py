@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 from typing import Callable
+from rich_features import feature_context
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -332,6 +333,8 @@ def generate(args: argparse.Namespace) -> dict:
                             "feature_sha256": fingerprint,
                             "label_cp_white": score_label(score, state["side_to_move"]),
                             "teacher": score,
+                            **({"native_context_v2": feature_context(state, args.variant)}
+                               if args.rich_context else {}),
                         })
                     moves.append(bestmove)
                 assert state is not None and descriptor is not None and start_fen is not None
@@ -399,6 +402,7 @@ def generate(args: argparse.Namespace) -> dict:
             "files": {path.name: {"sha256": sha256(path), "bytes": path.stat().st_size}
                       for path in (positions_path, games_path)},
             "split_policy": "trainer must split by whole game and remove exact feature fingerprints crossing splits",
+            "native_context_version": 2 if args.rich_context else None,
             "limitations": [
                 "CPU pilot data for pipeline validation; no Elo or strength claim",
                 "max-plies truncation has result null and is not a draw",
@@ -438,6 +442,8 @@ def main() -> int:
     parser.add_argument("--opening-plies", type=bounded_int(0, 32), default=8)
     parser.add_argument("--timeout", type=bounded_int(1, 600), default=60)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--rich-context", action="store_true",
+                        help="record native promoted lineage, rights and variant-region statistics for future SVNNUE-v2 work")
     args = parser.parse_args()
     if args.games * args.max_plies > 1_000_000:
         parser.error("one generation run is limited to one million plies")

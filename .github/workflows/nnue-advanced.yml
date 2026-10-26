@@ -1,0 +1,151 @@
+name: NNUE streaming, resume, rich state, and paired match validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nnue-advanced.yml'
+      - 'tools/nnue/**'
+      - 'tests/stream_training_test.py'
+  workflow_dispatch:
+    inputs:
+      stress_test:
+        description: Also index and train on >1,000,000 synthetic sparse positions
+        type: boolean
+        default: true
+      arena_pairs:
+        description: Matched opening pairs per variant
+        type: number
+        default: 12
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  streaming-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Deterministic synthetic resume and checksum regressions
+        run: python tests/stream_training_test.py
+      - name: Build exact rule and neural runtime
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Generate native chess samples with richer rule context
+        run: |
+          python tools/nnue/generate.py --engine build/engine/src/stockless-variants \
+            --variant chess --games 12 --max-plies 64 --depth 2 \
+            --seed 20261026 --rich-context --output build/advanced-smoke/data
+      - name: Train in two independently restartable stages
+        run: |
+          python tools/nnue/train_stream.py \
+            --data build/advanced-smoke/data --output build/advanced-smoke/model \
+            --epochs 2 --stop-after-epoch 1 --batch-size 64
+          python tools/nnue/train_stream.py \
+            --data build/advanced-smoke/data --output build/advanced-smoke/model \
+            --epochs 2 --resume --batch-size 64
+      - name: Replay actual heldout native game states and NNUE integer inference
+        run: |
+          python tools/nnue/validate_stream.py \
+            --engine build/engine/src/stockless-variants \
+            --index build/advanced-smoke/model/index.sqlite3 \
+            --model-dir build/advanced-smoke/model \
+            --positions 16 --report build/advanced-smoke/native-checks.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nnue-streaming-smoke
+          path: |
+            build/advanced-smoke/model/*.svnnue
+            build/advanced-smoke/model/metrics.json
+            build/advanced-smoke/model/latest.json
+            build/advanced-smoke/native-checks.json
+          retention-days: 14
+          if-no-files-found: error
+
+  million-stress:
+    if: (github.event_name == 'workflow_dispatch' && inputs.stress_test) || contains(github.event.head_commit.message, '[million]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 130
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Generate and verify 1,000,001 sparse records with bounded RAM
+        run: python tests/stream_training_test.py --stress --rows 1000001
+
+  arena:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build exact compatible native variant engine
+        run: make build ARCH=x86-64 JOBS=2
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40309268117
+          name: nnue-long-model-${{ matrix.variant }}-2111db87ce62446b932e55f87a79198f1d09f3c5
+          github-token: ${{ github.token }}
+          path: build/arena-model
+      - name: Strict network identity and actual matched games
+        env:
+          VARIANT: ${{ matrix.variant }}
+          PAIRS: ${{ inputs.arena_pairs }}
+        run: |
+          echo "Using trained model $(sha256sum build/arena-model/$VARIANT.svnnue)"
+          python tools/nnue/arena.py \
+            --engine build/engine/src/stockless-variants \
+            --model "build/arena-model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --pairs "$([ -n "$PAIRS" ] && echo "$PAIRS" || echo 12)" \
+            --max-plies 240 --opening-plies 6 --depth 3 \
+            --seed 20261026 --output "build/arena-$VARIANT.json"
+      - name: Summarize outcomes without promoting early-censored games
+        if: always()
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(f"build/arena-{os.environ['VARIANT']}.json")
+          if p.exists():
+              j=json.loads(p.read_text())
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+                  f.write(f"### {j['variant']} NNUE vs Classical\n\n")
+                  f.write(f"W/D/L: {j['wins']}/{j['draws']}/{j['losses']}; ")
+                  f.write(f"censored unfinished: {j['censored']} of {j['games']} games.\n\n")
+                  f.write(f"Completed-only score: {j['score_completed_only']}; **not Elo**.\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nnue-arena-${{ matrix.variant }}
+          path: build/arena-*.json
+          if-no-files-found: warn
+          retention-days: 30
