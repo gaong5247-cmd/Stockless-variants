@@ -1,0 +1,115 @@
+name: Publish Stockless Variants engine archives as latest release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-latest.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out release automation
+        uses: actions/checkout@v4
+
+      - name: Download and verify five published build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID=40303979772
+          EXPECTED_SHA=8aa329e240d2761f9a7ae9454a846be84388b016
+
+          actual_sha=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.head_sha')
+          conclusion=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.conclusion')
+          if [[ "$actual_sha" != "$EXPECTED_SHA" || "$conclusion" != "success" ]]; then
+            echo "::error::Source workflow must be successful at the exact pinned commit"
+            exit 1
+          fi
+
+          artifacts=(
+            stockless-variants-windows-x86-64
+            stockless-variants-windows-x86-64-avx2
+            stockless-variants-linux-x86-64
+            stockless-variants-linux-x86-64-avx2
+            stockless-variants-android-arm64
+          )
+          mkdir -p release-assets
+          for artifact in "${artifacts[@]}"; do
+            mkdir -p "incoming/$artifact"
+            gh run download "$RUN_ID" -R "$REPO" --name "$artifact" --dir "incoming/$artifact"
+
+            mapfile -t zips < <(find "incoming/$artifact" -type f -name 'stockless-variants-*.zip' | sort)
+            if [[ ${#zips[@]} -ne 1 ]]; then
+              echo "::error::$artifact must contain exactly one distribution ZIP"
+              exit 1
+            fi
+            archive="${zips[0]}"
+            checksum="$archive.sha256"
+            if [[ ! -f "$checksum" ]]; then
+              echo "::error::Missing checksum for $archive"
+              exit 1
+            fi
+
+            cp "$archive" "$checksum" release-assets/
+          done
+
+          if [[ $(find release-assets -maxdepth 1 -name '*.zip' | wc -l) -ne 5 ]]; then
+            echo "::error::Expected five binary archives"
+            exit 1
+          fi
+          (
+            cd release-assets
+            sha256sum --check ./*.zip.sha256
+            for archive in ./*.zip; do
+              unzip -t -qq "$archive"
+            done
+          )
+          echo "Five archive and checksum pairs validated."
+
+      - name: Publish/update latest GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=v0.2.0-dev
+          SOURCE_SHA=8aa329e240d2761f9a7ae9454a846be84388b016
+
+          cat > release-notes.md <<'NOTES'
+          Stockless Variants experimental development binaries from the successful multi-platform build.
+
+          **Source commit:** `8aa329e240d2761f9a7ae9454a846be84388b016`
+          **Build workflow:** https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40303979772
+
+          The five ready-to-download engine ZIPs are:
+          - Windows x86-64
+          - Windows x86-64 AVX2
+          - Linux x86-64
+          - Linux x86-64 AVX2
+          - Android ARM64 (API 26+)
+
+          Each ZIP contains the corresponding source, licenses, notices, configuration, and capability catalog.
+          Each archive has its own `.zip.sha256` file. Linux/Windows packages include runtime test evidence.
+          **Android ARM64 is cross-compiled and architecture-checked, not runtime-tested on an Android device.**
+
+          This is a development release; no measured playing-strength / Elo claim is made.
+          NOTES
+
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* -R "$REPO" --clobber
+            gh release edit "$TAG" -R "$REPO" --title 'Stockless Variants v0.2.0-dev' --notes-file release-notes.md --draft=false --prerelease=false --latest
+          else
+            gh release create "$TAG" release-assets/* -R "$REPO" --target "$SOURCE_SHA" --title 'Stockless Variants v0.2.0-dev' --notes-file release-notes.md --latest
+          fi
+
+          gh release view "$TAG" -R "$REPO" --json url,isLatest,isDraft,isPrerelease,assets
