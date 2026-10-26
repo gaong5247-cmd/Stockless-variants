@@ -1,0 +1,83 @@
+name: SVNNUE-v3 compact king-relation neural architecture
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-efficient]
+    paths:
+      - '.github/workflows/nnue-v3-efficient.yml'
+      - 'src/stockless_variants/**'
+      - 'tools/patch_training.py'
+      - 'tools/nnue/**'
+      - 'tests/nnue_v3_king_features_test.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-king-context:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      TARGET: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned NumPy and SciPy CSR CPU kernels
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Verify sparse-versus-dense numerical parity and measure training kernel speed
+        run: python tests/nnue_sparse_training_test.py
+      - name: Compile Stockless Variants with v1/v2/v3 native NNUE
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Verify native v3 file format, features and royal move refresh
+        if: matrix.variant == 'chess'
+        run: python tests/nnue_v3_king_features_test.py --engine build/engine/src/stockless-variants
+      - name: Confirm original v1 and v2 native feature and model loader behavior
+        if: matrix.variant == 'chess'
+        run: python tests/nnue_v2_contract_test.py
+      - name: Generate 32 native v3 games with relative-king context
+        run: python tools/nnue/generate.py --engine build/engine/src/stockless-variants --variant "$TARGET" --games 32 --max-plies 96 --depth 3 --nnue-version 3 --rich-context --seed 20261030 --output "build/v3/$TARGET/data"
+      - name: Train CPU CSR king-relative v3 with real optimizer-state resumption
+        run: |
+          python tools/nnue/train_stream.py --data "build/v3/$TARGET/data" --output "build/v3/$TARGET/model" --epochs 6 --stop-after-epoch 2 --batch-size 64 --seed 20261030 --compute-kernel csr
+          python tools/nnue/train_stream.py --data "build/v3/$TARGET/data" --output "build/v3/$TARGET/model" --epochs 6 --resume --batch-size 64 --seed 20261030 --compute-kernel csr
+      - name: Check v3 trained-model integer inference and native legal search
+        run: python tools/nnue/validate_stream.py --engine build/engine/src/stockless-variants --index "build/v3/$TARGET/model/index.sqlite3" --model-dir "build/v3/$TARGET/model" --positions 32 --report "build/v3/$TARGET/native-checks.json"
+      - name: Require strict version-3 network magic and successful quantization
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          root=Path('build/v3')/os.environ['TARGET']
+          network=root/'model'/(os.environ['TARGET']+'.svnnue')
+          if network.read_bytes()[:8]!=b'SVNNUE3\x00':
+              raise SystemExit('Not a native SVNNUE-v3 model')
+          metrics=json.loads((root/'model/metrics.json').read_text())
+          runtime=json.loads((root/'native-checks.json').read_text())
+          if not metrics['quantization_passed'] or runtime['failed'] or runtime['checks']<32:
+              raise SystemExit('Native v3 training gate failed')
+          print(json.dumps({'game':os.environ['TARGET'],'epochs':metrics['epochs_completed'],
+                            'kernel':metrics['compute_kernel'],
+                            'test_mae_cp':metrics['test_teacher_approximation']['mae_cp'],
+                            'native_checks':runtime['checks'],
+                            'status':'experimental-not-elo'}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v3-native-pilot-${{ matrix.variant }}
+          path: build/v3/${{ matrix.variant }}/
+          retention-days: 30
+          if-no-files-found: warn
