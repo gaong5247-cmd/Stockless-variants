@@ -50,7 +50,12 @@ def run(input_root:Path,variant:str,out:Path,shards=12,min_unique=1000000):
             raise ValueError("Verified audit seed did not match original manifest")
         without_seed={k:v for k,v in regenerated.items() if k!="seed"}
         if previous!=without_seed:
-            raise ValueError(f"{variant}/{i}: independently regenerated audit differs from original")
+            changed=[k for k in sorted(set(previous)|set(without_seed))
+                     if previous.get(k)!=without_seed.get(k)]
+            details={k:{"original":str(previous.get(k))[:200],
+                        "regenerated":str(without_seed.get(k))[:200]}
+                     for k in changed}
+            raise ValueError(f"{variant}/{i}: independently regenerated audit differs from original keys {details}")
         recovered.append({"shard":i,"seed":seed,
                           "source_manifest_sha256":regenerated["manifest_sha256"],
                           "raw_positions":regenerated["positions"]})
