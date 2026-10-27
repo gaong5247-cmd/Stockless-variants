@@ -1,0 +1,79 @@
+name: Smoke-test diverse SVNNUE3 self-play source and fingerprint audit
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - 'tools/nnue/generate_v3.py'
+      - 'tools/nnue/verify_diverse_shard.py'
+      - '.github/workflows/v3-diverse-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diverse-generator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Compile pinned native royal-perspective teacher
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Four independent teacher/search/opening/trajectory profiles
+        run: |
+          set -euo pipefail
+          for index in 0 1 2 3; do
+            case "$index" in
+              0) profile=balanced; depth=4;;
+              1) profile=multipv; depth=4;;
+              2) profile=deep; depth=5;;
+              3) profile=exploration; depth=3;;
+            esac
+            seed=$((20261027 + index * 100003))
+            dataset="build/diverse-smoke/$VARIANT/$index"
+            python3 tools/nnue/generate_v3.py \
+              --engine build/engine/src/stockless-variants \
+              --variant "$VARIANT" --games 10 --max-plies 96 \
+              --profile "$profile" --shard-id "$index" \
+              --depth "$depth" --seed "$seed" --timeout 90 \
+              --output "$dataset"
+            python3 tools/nnue/verify_diverse_shard.py \
+              --data "$dataset" --variant "$VARIANT" --shard "$index" \
+              --profile "$profile" --min-games 10
+          done
+      - name: Verify four sets are distinct with accurate source hashes
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path('build/diverse-smoke')/os.environ['VARIANT']
+          manifests=[json.loads((root/str(i)/'manifest.json').read_text()) for i in range(4)]
+          audits=[json.loads((root/str(i)/'audit.json').read_text()) for i in range(4)]
+          assert len(set(x['seed'] for x in manifests))==4
+          assert len(set(x['profile'] for x in manifests))==4
+          assert len(set(x['native_engine_sha256'] for x in manifests))==1
+          assert len(set(x['descriptor']['rules_sha256'] for x in manifests))==1
+          assert all(x['verified'] for x in audits)
+          total=sum(x['positions'] for x in manifests)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write(f"### {os.environ['VARIANT']} — diverse native v3 smoke\n\n")
+              out.write(f"Profiles: balanced/multipv/deep/exploration; native games 40; "
+                        f"labeled positions {total}; 4/4 fingerprint audits passed.\n")
+          print(json.dumps({'variant':os.environ['VARIANT'],'positions':total,'shards':4}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: diverse-smoke-${{ matrix.variant }}
+          path: build/diverse-smoke/${{ matrix.variant }}/
+          retention-days: 5
+          if-no-files-found: error

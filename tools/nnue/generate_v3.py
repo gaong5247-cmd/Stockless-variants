@@ -10,14 +10,16 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 import random
+import re
 import sys
 from generate import Engine, canonical, sha256, score_label, validate_state
 from model_v3 import validate_descriptor
 
 PREFIX="info string NNUE_FEATURES "
-GENERATOR="svnnue3-native-selfplay-1"
+GENERATOR="svnnue3-native-selfplay-2"
 
 def native_state(engine,variant,expected=None):
     engine.send("nnuefeaturesv3")
@@ -53,6 +55,66 @@ def native_state(engine,variant,expected=None):
         raise ValueError("v3 and base rules disagree on side to move")
     return state,v3
 
+
+PROFILES={
+    "pilot":       {"min_open":8, "max_open":8,  "multipv":1, "branch_percent":0},
+    "balanced":    {"min_open":2, "max_open":10, "multipv":1, "branch_percent":0},
+    "multipv":     {"min_open":6, "max_open":14, "multipv":3, "branch_percent":9},
+    "deep":        {"min_open":2, "max_open":12, "multipv":2, "branch_percent":4},
+    "exploration": {"min_open":8, "max_open":20, "multipv":2, "branch_percent":12},
+}
+
+def search_with_alternatives(engine,depth):
+    """Depth-bounded exact teacher label and principal variation alternatives.
+
+    Multipv alternatives affect only self-play trajectory, never the
+    authoritative score of the current state. Bounds are not used as labels.
+    """
+    engine.send(f"go depth {depth}")
+    lines=engine.until(lambda line:line.startswith("bestmove "))
+    best=lines[-1].split()[1]
+    exact=[]
+    choices={}
+    for line in lines:
+        if not line.startswith("info "):
+            continue
+        score=re.search(r"\bscore (cp|mate) (-?\d+)\b",line)
+        reached=re.search(r"\bdepth (\d+)\b",line)
+        nodes=re.search(r"\bnodes (\d+)\b",line)
+        pv=re.search(r"\bpv (\S+)",line)
+        rank=re.search(r"\bmultipv (\d+)\b",line)
+        if not (score and reached and nodes):
+            continue
+        number=int(rank[1]) if rank else 1
+        bounded=" lowerbound" in line or " upperbound" in line
+        item={"unit":score[1],"value":int(score[2]),"perspective":"side_to_move",
+              "bound":"lowerbound" if " lowerbound" in line else
+                      "upperbound" if " upperbound" in line else None,
+              "depth":int(reached[1]),"nodes":int(nodes[1])}
+        if number==1 and not bounded:
+            exact.append(item)
+        if pv and not bounded:
+            old=choices.get(number)
+            if old is None or item["depth"]>=old[0]:
+                choices[number]=(item["depth"],pv[1])
+    selected=max(enumerate(exact),key=lambda x:(x[1]["depth"],x[0]))[1] if exact else None
+    alternatives=[]
+    for rank in sorted(choices):
+        ply,move=choices[rank]
+        if rank!=1 and ply>=depth-1 and move!=best and move not in alternatives:
+            alternatives.append(move)
+    return best,selected,alternatives
+
+
+def per_game_profile(args,rng):
+    spec=PROFILES[args.profile]
+    min_open=args.opening_plies if args.profile=="pilot" else spec["min_open"]
+    max_open=args.opening_plies if args.profile=="pilot" else spec["max_open"]
+    opening=rng.randint(min_open,max_open)
+    depth=args.depth if args.profile in ("pilot","deep") else rng.choice((max(1,args.depth-1),args.depth))
+    return {"profile":args.profile,"opening_plies":opening,"teacher_depth":depth,
+            "multipv":spec["multipv"],"branch_percent":spec["branch_percent"]}
+
 def generate(args):
     path=args.engine.resolve()
     if not path.is_file():raise ValueError("Missing native teacher engine")
@@ -64,21 +126,32 @@ def generate(args):
     engine=Engine(path,args.timeout)
     games_path=dest/"games.jsonl"
     positions_path=dest/"positions.jsonl"
+    fingerprints_path=dest/"fingerprints.sha256.bin"
     positions=0
     complete=0
     censored=0
     expected=None
+    profiles_used=Counter()
+    trajectory_moves=Counter()
+    depths_used=Counter()
+    opening_lengths=Counter()
     options={"UCI_Variant":args.variant,"Threads":1,"Hash":16,"MultiPV":1,
              "EvalBackend":"Classical","Use NNUE":False,"StocklessHybrid":True}
     try:
         for key,value in options.items():engine.option(key,value)
-        with games_path.open("x",encoding="utf-8") as games,positions_path.open("x",encoding="utf-8") as records:
+        with games_path.open("x",encoding="utf-8") as games,positions_path.open("x",encoding="utf-8") as records, fingerprints_path.open("xb") as fingerprint_stream:
             for i in range(args.games):
                 seed=int.from_bytes(hashlib.sha256(
-                    f"{GENERATOR}:{args.variant}:{args.seed}:{i}".encode()).digest()[:8],"big")
+                    f"{GENERATOR}:{args.variant}:{args.seed}:{args.profile}:{args.shard_id}:{i}".encode()).digest()[:8],"big")
                 rng=random.Random(seed)
+                profile=per_game_profile(args,rng)
+                engine.option("MultiPV",profile["multipv"])
+                profiles_used[profile["profile"]]+=1
+                opening_lengths[profile["opening_plies"]]+=1
+                depths_used[profile["teacher_depth"]]+=1
                 moves=[]
                 rows=[]
+                game_moves=Counter()
                 engine.new_game()
                 for ply in range(args.max_plies+1):
                     engine.position(moves)
@@ -86,12 +159,27 @@ def generate(args):
                     if expected is None:expected=v3["descriptor"]
                     if state["terminal"]["ended"] or ply==args.max_plies:
                         break
-                    if ply<args.opening_plies:
+                    if ply<profile["opening_plies"]:
                         moves.append(rng.choice(sorted(state["legal_moves"])))
+                        game_moves["opening_random"]+=1
                         continue
-                    move,teacher=engine.search(args.depth)
-                    if move not in state["legal_moves"]:
-                        raise ValueError(f"Native teacher illegal move: {move}")
+                    teacher_move,teacher,alternatives=search_with_alternatives(
+                        engine,profile["teacher_depth"])
+                    if teacher_move not in state["legal_moves"]:
+                        raise ValueError(f"Native teacher illegal move: {teacher_move}")
+                    move=teacher_move
+                    source="teacher_best"
+                    if (alternatives and
+                        rng.randrange(100)<profile["branch_percent"]):
+                        legal=set(state["legal_moves"])
+                        candidates=[item for item in alternatives if item in legal]
+                        if candidates:
+                            move=rng.choice(candidates)
+                            source="multipv_alternative"
+                    # When a variant emits no alternative PV despite MultiPV,
+                    # keep teacher play. Never invent a nonlegal trajectory.
+                    game_moves[source]+=1
+                    trajectory_moves[source]+=1
                     if teacher is not None:
                         cp=score_label(teacher,state["side_to_move"])
                         rows.append({"schema":3,"ply":ply,"fen":state["fen"],
@@ -102,12 +190,17 @@ def generate(args):
                                      "features_white":v3["features_white"],
                                      "features_black":v3["features_black"],
                                      "white_bucket":v3["white_bucket"],
-                                     "black_bucket":v3["black_bucket"]})
+                                     "black_bucket":v3["black_bucket"],
+                                     "trajectory_profile":profile["profile"],
+                                     "teacher_chosen_move":teacher_move,
+                                     "played_move":move,"played_move_source":source,
+                                     "requested_depth":profile["teacher_depth"]})
                     moves.append(move)
                 gid=hashlib.sha256(canonical({
                     "generator":GENERATOR,"game":i,"variant":args.variant,
-                    "source_engine":teacher_hash,"seed":seed,
-                    "depth":args.depth,"maximum":args.max_plies
+                    "source_engine":teacher_hash,"seed":seed,"shard_id":args.shard_id,
+                    "profile":args.profile,"depth":profile["teacher_depth"],
+                    "maximum":args.max_plies
                 }).encode()).hexdigest()
                 ended=state["terminal"]["ended"]
                 outcome=(state["terminal"]["result_stm"]*
@@ -116,10 +209,15 @@ def generate(args):
                       "moves":moves,"plies":len(moves),"rows":len(rows),
                       "result_white":outcome,"truncated":not ended,
                       "terminal_reason":state["terminal"]["reason"] if ended else "max_plies",
-                      "final_fen":state["fen"]}
+                      "final_fen":state["fen"],"sampling":profile,
+                      "move_source_counts":dict(game_moves)}
                 games.write(canonical(game)+"\n")
                 for record in rows:
                     records.write(canonical({**record,"game_id":gid})+"\n")
+                    fingerprint_stream.write(hashlib.sha256(canonical([
+                        record["side_to_move"],record["features_white"],
+                        record["features_black"]
+                    ]).encode()).digest())
                 positions+=len(rows)
                 complete+=int(ended)
                 censored+=int(not ended)
@@ -130,16 +228,24 @@ def generate(args):
             raise ValueError("Insufficient native v3 learning positions")
         manifest={"schema":3,"generator":GENERATOR,"descriptor":expected,
                   "variant":args.variant,"seed":args.seed,
+                  "shard_id":args.shard_id,"profile":args.profile,
+                  "profiles":dict(profiles_used),
+                  "teacher_depth_distribution":dict(depths_used),
+                  "opening_length_distribution":dict(opening_lengths),
+                  "trajectory_sources":dict(trajectory_moves),
+                  "fingerprint_policy":"sha256(canonical([side,features_white,features_black]))",
                   "native_engine_sha256":teacher_hash,"teacher_options":options,
                   "games":args.games,"positions":positions,
                   "completed_games":complete,"censored_games":censored,
                   "teacher_depth":args.depth,"max_plies":args.max_plies,
                   "opening_plies":args.opening_plies,
+                  "depth_mode":"per_game_seeded",
+                  "sampling_policy_version":2,
                   "score_policy":"exact main PV, native value white and side-to-move cp",
                   "split_policy":"whole-game hash-based split, deduplicate dual-perspective inputs",
                   "files":{name:{"sha256":sha256(dest/name),
                                  "bytes":(dest/name).stat().st_size}
-                           for name in ("games.jsonl","positions.jsonl")}}
+                           for name in ("games.jsonl","positions.jsonl","fingerprints.sha256.bin")}}
         (dest/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
         print(json.dumps({"v3_positions":positions,"native_games":args.games,
                           "manifest":str(dest/"manifest.json")}))
@@ -152,6 +258,8 @@ def main():
     p.add_argument("--engine",type=Path,required=True)
     p.add_argument("--variant",choices=("chess","shogi","janggi","xiangqi","makruk"),required=True)
     p.add_argument("--games",type=int,default=32)
+    p.add_argument("--profile",choices=tuple(PROFILES),default="pilot")
+    p.add_argument("--shard-id",type=int,default=0)
     p.add_argument("--max-plies",type=int,default=96)
     p.add_argument("--depth",type=int,default=2)
     p.add_argument("--opening-plies",type=int,default=8)
@@ -159,7 +267,8 @@ def main():
     p.add_argument("--timeout",type=int,default=60)
     p.add_argument("--output",type=Path,required=True)
     a=p.parse_args()
-    if not (6<=a.games<=1024 and 32<=a.max_plies<=256 and
+    if not (6<=a.games<=1024 and 0<=a.shard_id<=1000000
+            and 32<=a.max_plies<=256 and
             1<=a.depth<=8 and 0<=a.opening_plies<=24 and
             0<=a.seed<2**32 and 1<=a.timeout<=300):
         p.error("Unsupported bounded v3 data generation budget")
