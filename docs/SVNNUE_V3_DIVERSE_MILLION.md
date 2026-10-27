@@ -8,6 +8,42 @@ The whole workflow fails unless Chess, Shogi, Janggi, Xiangqi and Makruk
 [GitHub Actions million-per-game workflow](../.github/workflows/v3-diverse-million.yml)
 [Native v3 evaluation architecture and prior NPS](SVNNUE_V3_LITE_RESULTS.md)
 
+## Independently certified results — 2026-10-27
+
+**All five million-unique-input objectives have been achieved and independently
+checked against the original source.** GitHub Actions
+[run 40475358787](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40475358787)
+generated **all 60 legal native game-data shards successfully**, but its
+aggregate jobs failed because the older compact audit omitted per-shard
+manifest seed metadata. The original games and model inputs themselves
+were complete. The separate [recovery/certification run 40501421340](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40501421340)
+individually downloaded all 60 original artifacts, recomputed game/label
+integrity and input hashes, recovered actual manifest seeds, and used
+disk-backed SQLite to deduplicate across **all 12 shards for each variant**.
+All five verification jobs and the final certificate passed.
+
+| Game | Source games | Native labeled positions | Unique dual-royal NNUE inputs | Duplicate rows |
+| --- | ---: | ---: | ---: | ---: |
+| Chess | 12,288 | 1,414,820 | **1,384,403** | 30,417 |
+| Shogi | 12,288 | 1,495,557 | **1,488,624** | 6,933 |
+| Janggi | 12,288 | 1,520,135 | **1,497,338** | 22,797 |
+| Xiangqi | 12,288 | 1,550,649 | **1,520,092** | 30,557 |
+| Makruk | 12,288 | 2,172,148 | **2,107,658** | 64,490 |
+| **Total** | **61,440** | **8,153,309** | **7,998,115** | **155,194** |
+
+Original source generator commit:
+[12063059](https://github.com/gaong5247-cmd/Stockless-variants/commit/12063059cdabc355053f6c9373bfe9642858c63c).
+These are native feature/side-of-turn identities, not a claim that 7.998M
+human-distinct *FENs* were created. No finished model Elo claim follows
+from input cardinality.
+
+The [certified-data training run 40502083572](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40502083572)
+uses a sparse feature transformer with full optimizer checkpoint recovery.
+The [research-release archival run 40502256268](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40502256268)
+preserves the original shard ZIPs separately from engine binaries. Training
+and releases have their own acceptance gates; this data certificate alone
+does not claim that either has finished.
+
 ## Input sources and diversity
 
 One fixed, pinned and SHA-256-recorded native C++ engine generates all
@@ -136,12 +172,12 @@ supported and unaffected; tests compare the sparse gradient against a
 fully materialized FP32 reference and require deterministic restarts.
 
 The separate [large native training workflow](../.github/workflows/train-v3-million.yml)
-can fit each independently certified 1M+ corpus, checkpoint after the
-first epoch, resume with optimizer state, quantize and verify actual
-C++ integer evaluation on heldout positions. Its launch requires the
-*original full source campaign* and exact SHA to have succeeded, so
-it is not a statement that all five million-row models have already
-been trained.
+retrains each independently certified 1M+ corpus, checkpointing after
+the first epoch and resuming the exact optimizer state before quantization
+and heldout native C++ evaluation. It is pinned to the separately successful
+source recovery certificate, since the historical generation run's audit
+summary failed despite all 60 data jobs succeeding. Dataset certification
+must not be confused with finished model training.
 
 An independent [data release archiver](../.github/workflows/archive-v3-diverse.yml)
 can publish the 60 verified source shard ZIPs as five game-specific
@@ -165,5 +201,5 @@ resumable trainer. Native model training, quantization and paired
 NNUE/Classical matches need their own measured validation; a million
 diverse input states alone does not prove stronger playing strength.
 
-Do not claim the target has been achieved before the workflow is complete
-and the actual per-variant unique counts are available.
+The unique cardinality target is independently certified; strength and
+Elo remain unmeasured until further native engine matches complete.
