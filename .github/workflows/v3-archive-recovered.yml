@@ -1,0 +1,137 @@
+name: Preserve certified 7.99M diverse SVNNUE3 data in five research releases
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-archive-recovered.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: certified-svnnue3-data-releases-20261027
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    if: github.repository == 'gaong5247-cmd/Stockless-variants'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 230
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VARIANT: ${{ matrix.variant }}
+      SOURCE_RUN: '40475358787'
+      SOURCE_SHA: '12063059cdabc355053f6c9373bfe9642858c63c'
+      PROOF_RUN: '40505070066'
+      PROOF_SHA: '746d71449533970a938bf7dfe4ead8b45d556e83'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require successful SHA-pinned independent source recovery and 60/60 original generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PROOF_RUN" > build/proof-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > build/source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/jobs?per_page=100" > build/source-jobs.json
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=json.loads(Path('build/proof-run.json').read_text())
+          r=json.loads(Path('build/source-run.json').read_text())
+          jobs=json.loads(Path('build/source-jobs.json').read_text())['jobs']
+          generation=[j for j in jobs if j['name'].startswith('generate (')]
+          assert p['conclusion']=='success' and p['head_sha']==os.environ['PROOF_SHA']
+          assert r['head_sha']==os.environ['SOURCE_SHA'] and r['status']=='completed'
+          assert len(generation)==60 and all(j['conclusion']=='success' for j in generation)
+          PY
+      - name: Download all twelve full original native royal-perspective shards by exact name
+        shell: bash
+        run: |
+          set -euo pipefail
+          for shard in $(seq 0 11); do
+            name="v3-diverse-data-$VARIANT-$shard"
+            folder="incoming/$name"
+            mkdir -p "$folder"
+            gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+              --name "$name" --dir "$folder"
+            for file in games.jsonl positions.jsonl manifest.json audit.json fingerprints.sha256.bin; do
+              test -s "$folder/$file" || { echo "::error::Incomplete original $folder/$file"; exit 1; }
+            done
+          done
+      - name: Download successful SHA-validated per-variant million-unique proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p proof
+          gh run download "$PROOF_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "recovered-million-proof-$VARIANT" --dir proof
+          test -s "proof/$VARIANT.json"
+      - name: Re-verify every original source position and produce twelve checksum-verified ZIPs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/nnue/archive_diverse_v3.py \
+            --root incoming --proof "proof/$VARIANT.json" \
+            --variant "$VARIANT" --output release-assets
+          (cd release-assets && sha256sum --check SHASUMS256.txt)
+      - name: Create a separate experimental data-only GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="svnnue3-diverse-$VARIANT-1m-20261027"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads(Path('release-assets/CORPUS_MANIFEST.json').read_text())
+          v=os.environ['VARIANT']
+          assert m['variant']==v and m['unique_native_input_fingerprints']>=1000000
+          assert m['source_revision']==os.environ['SOURCE_SHA']
+          lines=[
+              '# Stockless Variants SVNNUE3: '+v+' native research corpus',
+              '',
+              'Real native game histories: '+str(m['native_games']),
+              'Teacher-labeled positions: '+str(m['generated_positions']),
+              'Distinct SHA-256 royal-perspective inputs: '+str(m['unique_native_input_fingerprints']),
+              '',
+              'Includes all 12 audited shard ZIPs, complete games and labeled',
+              'positions, original network feature arrays, profile+teacher',
+              'metadata, source manifests and SHA256SUMS.',
+              '',
+              'Successful original generation: https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40475358787',
+              'Independent unique proof: https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40505070066',
+              'Original exact source: '+m['source_revision'],
+              '',
+              'Research DATA only; trained network strength/Elo is NOT claimed.',
+              'This pre-release does not replace the existing latest engine.'
+          ]
+          Path('release-notes.md').write_text('\n'.join(lines)+'\n')
+          PY
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            target=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq '.targetCommitish')
+            pre=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq '.isPrerelease')
+            if [ "$target" != "$SOURCE_SHA" ] || [ "$pre" != true ]; then
+              echo "::error::Refusing to overwrite a release with a different source revision"
+              exit 1
+            fi
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md --prerelease
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" --prerelease \
+              --title "SVNNUE3 $VARIANT diverse 1M+ native inputs (research)" \
+              --notes-file release-notes.md
+          fi
+          for asset in release-assets/*; do
+            gh release upload "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --clobber
+          done
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json url,isPrerelease,targetCommitish,assets \
+            --jq '{url,isPrerelease,targetCommitish,asset_count:(.assets|length)}'

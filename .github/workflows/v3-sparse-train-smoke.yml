@@ -1,0 +1,104 @@
+name: SVNNUE3 sparse FT million-row trainer smoke and complete optimizer resume
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - 'tools/nnue/train_v3.py'
+      - 'tools/nnue/sparse_ft.py'
+      - 'tests/v3_sparse_ft_test.py'
+      - '.github/workflows/v3-sparse-train-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sparse-trainer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Check sparse gradient equality, untouched feature rows and exact optimizer resume
+        run: python tests/v3_sparse_ft_test.py
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40475004484
+          name: diverse-smoke-${{ matrix.variant }}
+          github-token: ${{ github.token }}
+          path: build/source-shards
+      - name: Merge four independently verified native teacher profiles
+        run: |
+          python tools/nnue/merge_diverse_v3.py \
+            --input-root build/source-shards --output build/corpus \
+            --variant "$VARIANT" --shards 4 --games-per-shard 10
+      - name: Train one sparse epoch and terminate with full optimizer checkpoint
+        run: |
+          python tools/nnue/train_v3.py --data build/corpus \
+            --output build/nnue --epochs 2 --stop-after-epoch 1 \
+            --batch-size 128 --optimizer sparse_ft_adagrad --seed 20261027
+      - name: Recover optimizer state, finish training, quantize and hold out test games
+        run: |
+          python tools/nnue/train_v3.py --data build/corpus \
+            --output build/nnue --epochs 2 --batch-size 128 \
+            --optimizer sparse_ft_adagrad --seed 20261027 --resume
+      - name: Build actual v3 C++ inference engine and compare trained integer results
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Require native 32 heldout states and 4 legal make/unmake searches
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model-dir build/nnue --positions 32 \
+            --report build/nnue/runtime-validation.json
+      - name: Surface measured model and optimizer results
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os
+          root=Path('build/nnue')
+          v=os.environ['VARIANT']
+          lines=[f"### SVNNUE3 {v} row-sparse optimizer"]
+          p=root/'metrics.json'
+          if p.exists():
+              m=json.loads(p.read_text())
+              lines.append(f"Optimizer: {m['optimizer']}; epochs: {m['epochs_completed']}; "
+                           f"steps: {m['gradient_steps']}; heldout MAE: {m['test']['mae_cp']:.2f} cp.")
+          p=root/'runtime-validation.json'
+          if p.exists():
+              n=json.loads(p.read_text())
+              lines.append(f"Actual C++ parity and legal searches: {n['passed']} passed, {n['failed']} failed.")
+          lines.append('This is a smoke/regression test, not a million-row fit or Elo estimate.')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v3-sparse-train-smoke-${{ matrix.variant }}
+          path: |
+            build/nnue/metrics.json
+            build/nnue/latest.json
+            build/nnue/network-manifest.json
+            build/nnue/runtime-validation.json
+          retention-days: 14
+          if-no-files-found: warn

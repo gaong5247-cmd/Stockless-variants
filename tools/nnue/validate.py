@@ -129,6 +129,7 @@ def main() -> None:
     started = time.monotonic()
     engine = Engine(engine_path, timeout=60)
     try:
+        engine.feature_version = descriptor["feature_version"]
         engine.option("UCI_Variant", descriptor["variant"])
         engine.option("Threads", 1)
         engine.option("Hash", 16)

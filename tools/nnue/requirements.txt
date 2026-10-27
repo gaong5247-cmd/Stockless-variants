@@ -1,2 +1,3 @@
-# CPU-only experimental trainer; matches the recorded local environment.
+# CPU sparse-feature trainer, pinned for reproducible GitHub Actions runners.
 numpy==2.3.5
+scipy==1.17.0

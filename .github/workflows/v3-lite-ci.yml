@@ -1,0 +1,208 @@
+name: SVNNUE-v3 Lite native two-perspective training and parity
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - 'src/stockless_variants/**'
+      - 'tools/nnue/**'
+      - 'tools/patch_nnue.py'
+      - 'tools/patch_training.py'
+      - '.github/workflows/v3-lite-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v3-training:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned sparse numerical backend
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Compile actual C++ SVNNUE3 Lite variant engine
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Generate actual native royal-perspective self-play data
+        run: |
+          python tools/nnue/generate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --variant "$VARIANT" --games 32 --max-plies 96 --depth 2 \
+            --seed 20261027 --opening-plies 8 \
+            --output "build/v3/$VARIANT/data"
+      - name: Train with bounded CSR minibatches, interrupt, and resume full Adam
+        run: |
+          python tools/nnue/train_v3.py \
+            --data "build/v3/$VARIANT/data" --output "build/v3/$VARIANT/model" \
+            --epochs 8 --stop-after-epoch 3 --batch-size 64 --seed 20261027
+          python tools/nnue/train_v3.py \
+            --data "build/v3/$VARIANT/data" --output "build/v3/$VARIANT/model" \
+            --epochs 8 --batch-size 64 --seed 20261027 --resume
+      - name: Verify real native two-perspective inference, accumulation and legal search
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model-dir "build/v3/$VARIANT/model" --positions 32 \
+            --report "build/v3/$VARIANT/native-validation.json"
+      - name: Record measured results, without inventing Elo
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          p=Path('build/v3')/os.environ['VARIANT']
+          lines=[f"## {os.environ['VARIANT']} SVNNUE3 Lite actual C++ training"]
+          for name in ['data/manifest.json','model/metrics.json','native-validation.json']:
+              f=p/name
+              if f.exists():
+                  j=json.loads(f.read_text())
+                  if name.startswith('data'):
+                      lines.append(f"Native games {j['games']}, generated positions {j['positions']}.")
+                  elif name.endswith('metrics.json'):
+                      lines.append(f"Adam steps {j['gradient_steps']}; best epoch {j['selected_epoch']}; "
+                                   f"heldout teacher MAE {j['test']['mae_cp']:.2f} cp.")
+                  else:
+                      lines.append(f"Actual native integer/search checks {j['passed']} (failed {j['failed']}).")
+          lines.append("Pilot trained data is not an Elo or strength result.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svnnue3-pilot-${{ matrix.variant }}-${{ github.sha }}
+          path: build/v3/${{ matrix.variant }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+
+  isa-parity:
+    needs: v3-training
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Require a real AVX2 runner
+        run: |
+          grep -Eqi '(^|[[:space:]])avx2([[:space:]]|$)' /proc/cpuinfo ||
+            { echo '::error::Runner CPU has no AVX2 capability'; exit 1; }
+      - name: Install pinned numeric reference dependencies
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Build vanilla scalar x86-64 executable
+        run: |
+          set -euo pipefail
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/isa-backup
+          cp build/engine/src/stockless-variants build/isa-backup/stockless-variants-scalar
+          sha256sum build/isa-backup/stockless-variants-scalar
+      - name: Independently rematerialize and build AVX2 executable
+        run: |
+          set -euo pipefail
+          make build ARCH=x86-64-avx2 JOBS=2
+          cp build/isa-backup/stockless-variants-scalar \
+            build/engine/src/stockless-variants-scalar
+          sha256sum build/engine/src/stockless-variants build/engine/src/stockless-variants-scalar
+      - name: Download same-run independently trained native v3 network and frozen games
+        uses: actions/download-artifact@v4
+        with:
+          name: svnnue3-pilot-${{ matrix.variant }}-${{ github.sha }}
+          path: build/isa-model
+      - name: Validate scalar on 64 frozen real positions and depth-3 search
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/engine/src/stockless-variants-scalar \
+            --model-dir build/isa-model/model --positions 64 \
+            --report build/isa-results/scalar-native.json
+      - name: Validate AVX2 on same 64 frozen real positions and depth-3 search
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model-dir build/isa-model/model --positions 64 \
+            --report build/isa-results/avx2-native.json
+      - name: Require exact scalar and AVX2 feature/eval/accumulator/search parity
+        run: |
+          python tools/nnue/compare_isa_v3.py \
+            --scalar build/engine/src/stockless-variants-scalar \
+            --avx2 build/engine/src/stockless-variants \
+            --model-dir build/isa-model --positions 64 --search-positions 6 \
+            --depth 4 --output build/isa-results/parity.json
+      - name: Benchmark depth-7 search using identical models and openings (scalar)
+        run: |
+          python tools/nps_v3.py \
+            --engine build/engine/src/stockless-variants-scalar \
+            --model build/isa-model/model/$VARIANT.svnnue \
+            --variant "$VARIANT" --depth 7 --positions 8 \
+            --seed 20261027 --output build/isa-results/scalar-nps.json
+      - name: Benchmark depth-7 search using identical models and openings (AVX2)
+        run: |
+          python tools/nps_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model build/isa-model/model/$VARIANT.svnnue \
+            --variant "$VARIANT" --depth 7 --positions 8 \
+            --seed 20261027 --output build/isa-results/avx2-nps.json
+      - name: Summarize validated native ISA parity and observed NPS
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('build/isa-results')
+          lines=[f"## {os.environ['VARIANT']} SVNNUE3 scalar vs AVX2"]
+          if (root/'parity.json').exists():
+              r=json.loads((root/'parity.json').read_text())
+              lines.append(f"Exact heldout integer/feature checks: {r['positions_checked']}; "
+                           f"search make/unmake checks: {r['search_positions_checked']}; "
+                           f"disagreements: {r['two_engine_integer_disagreements']}.")
+          if (root/'scalar-nps.json').exists() and (root/'avx2-nps.json').exists():
+              scalar=json.loads((root/'scalar-nps.json').read_text())
+              avx=json.loads((root/'avx2-nps.json').read_text())
+              s=scalar['nnue_v3']['nps']
+              a=avx['nnue_v3']['nps']
+              lines.append(f"Search NPS scalar: {s}; AVX2: {a}; observed ratio: "
+                           f"{a/s if s and a else None}. "
+                           "These are depth-matched searches, not isolated evaluator microbenchmarks.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svnnue3-isa-${{ matrix.variant }}-${{ github.sha }}
+          path: build/isa-results/*.json
+          retention-days: 30
+          if-no-files-found: warn

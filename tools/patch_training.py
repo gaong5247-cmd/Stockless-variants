@@ -19,13 +19,16 @@ def apply(out: Path) -> None:
     replace(uci, '#include "uci.h"\n',
             '#include "uci.h"\n#include "stockless_core/training_export.h"\n')
     anchor = '      else if (token == "compiler") sync_cout << compiler_info() << sync_endl;\n'
-    replace(uci, anchor, '''      else if (token == "nnuefeatures")
+    replace(uci, anchor, '''      else if (token == "nnuefeatures" || token == "nnuefeaturesv2" || token == "nnuefeaturesv3")
       {
           // This command owns a stable root snapshot, including repetition history.
           // Joining also makes accidental requests during search safe.
           Threads.stop = true;
           Threads.main()->wait_for_search_finished();
           sync_cout << "info string NNUE_FEATURES "
-                    << Stockless::training_features_json(pos) << sync_endl;
+                    << (token == "nnuefeaturesv3"
+                        ? Stockless::training_features_v3_json(pos)
+                        : Stockless::training_features_json(pos, token == "nnuefeaturesv2"))
+                    << sync_endl;
       }
 ''' + anchor)
