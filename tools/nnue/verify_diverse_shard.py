@@ -145,7 +145,6 @@ def verify(root,variant,shard,profile,min_games):
         raise ValueError("Position totals do not agree with game manifests")
     report={"schema":3,"audit_version":"svnnue3-diverse-audit-v1",
         "variant":variant,"profile":profile,"shard":shard,
-        "seed":m["seed"],
         "manifest_sha256":sha256(manifest_file),
         "source_engine_sha256":m["native_engine_sha256"],
         "rules_sha256":d["rules_sha256"],"descriptor":d,
