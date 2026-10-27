@@ -45,6 +45,7 @@ std::vector<std::pair<std::uint32_t, std::int32_t>>
 features(const Position& pos, Color perspective);
 bool applicable(const Position& pos);
 Value evaluate(const Position& pos);
+Value evaluate_cached(const Position& pos);
 std::string status_json(const Variant* variant);
 std::string evaluation_json(const Position& pos);
 std::string native_features_json(const Position& pos);

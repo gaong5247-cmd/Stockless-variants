@@ -89,7 +89,7 @@ def apply(out: Path) -> None:
     replace(evaluation, '''  if (!Eval::useNNUE || !pos.nnue_applicable())
       v = Evaluation<NO_TRACE>(pos).value();
 ''', '''  if (Stockless::Neural::V3::applicable(pos))
-      v = Stockless::Neural::V3::evaluate(pos);
+      v = Stockless::Neural::V3::evaluate_cached(pos);
   else if (Stockless::Neural::applicable(pos))
       v = Stockless::Neural::evaluate(pos);
   else if (!Eval::useNNUE || !pos.nnue_applicable())

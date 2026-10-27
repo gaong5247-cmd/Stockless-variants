@@ -21,6 +21,10 @@
 #include "../position.h"
 #include "../variant.h"
 
+#if defined(USE_AVX2)
+#include <immintrin.h>
+#endif
+
 namespace Stockfish::Stockless::Neural::V3 {
 namespace {
 
@@ -269,8 +273,19 @@ bool extract(const Position& pos,const Descriptor& d,Color perspective,
 }
 
 void add(std::array<std::int32_t,Hidden>& acc,const std::int16_t* weight,int count) {
+#if defined(USE_AVX2)
+    const __m256i mult=_mm256_set1_epi32(count);
+    for(unsigned k=0;k<Hidden;k+=8) {
+        const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(weight+k));
+        const __m256i expanded=_mm256_cvtepi16_epi32(packed);
+        const __m256i old=_mm256_loadu_si256(reinterpret_cast<const __m256i*>(acc.data()+k));
+        const __m256i next=_mm256_add_epi32(old,_mm256_mullo_epi32(expanded,mult));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(acc.data()+k),next);
+    }
+#else
     for(unsigned k=0;k<Hidden;++k)
         acc[k]+=std::int32_t(weight[k])*count;
+#endif
 }
 
 bool refresh(const Position& pos, Accumulator& state) {
@@ -294,14 +309,10 @@ bool refresh(const Position& pos, Accumulator& state) {
 
 bool ensure(const Position& pos) {
     auto& state=pos.stockless_v3_accumulator();
-    if(state.generation==generation) {
-        for(Color perspective : {WHITE,BLACK})
-            if(int(state.bucket[int(perspective)])
-                    !=royal_bucket(pos,loaded->descriptor,perspective))
-                return refresh(pos,state);
-        return true;
-    }
-    return refresh(pos,state);
+    // All own-royal board changes invalidate generation in board_delta().
+    // Hence a valid generation proves both cached anchors are still current.
+    // Avoid two royal-square lookups at every searched leaf.
+    return state.generation==generation || refresh(pos,state);
 }
 
 std::int32_t clamp_act(std::int64_t value) {
@@ -319,21 +330,31 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
         for(unsigned k=0;k<Hidden;++k)
             act[color*Hidden+k]=clamp_act(state.values[color==0?first:1-first][k]);
 
+    // The on-disk matrices are row-major. Accumulate each contiguous row
+    // into all output neurons, and skip zero clipped activations entirely.
+    std::array<std::int64_t,L1> first{};
+    for(unsigned j=0;j<L1;++j)first[j]=loaded->first_bias[j];
+    for(unsigned i=0;i<act.size();++i) {
+        if(!act[i])continue;
+        const auto* row=loaded->first.data()+i*L1;
+        for(unsigned j=0;j<L1;++j)
+            first[j]+=std::int64_t(act[i])*row[j];
+    }
     std::array<std::int32_t,L1> layer1{};
-    for(unsigned j=0;j<L1;++j) {
-        std::int64_t value=loaded->first_bias[j];
-        for(unsigned i=0;i<act.size();++i)
-            value+=std::int64_t(act[i])*loaded->first[i*L1+j];
-        layer1[j]=clamp_act(round_div(value,QB));
-    }
+    for(unsigned j=0;j<L1;++j)
+        layer1[j]=clamp_act(round_div(first[j],QB));
 
-    std::array<std::int32_t,L2> layer2{};
-    for(unsigned j=0;j<L2;++j) {
-        std::int64_t value=loaded->second_bias[j];
-        for(unsigned i=0;i<L1;++i)
-            value+=std::int64_t(layer1[i])*loaded->second[i*L2+j];
-        layer2[j]=clamp_act(round_div(value,QB));
+    std::array<std::int64_t,L2> second{};
+    for(unsigned j=0;j<L2;++j)second[j]=loaded->second_bias[j];
+    for(unsigned i=0;i<L1;++i) {
+        if(!layer1[i])continue;
+        const auto* row=loaded->second.data()+i*L2;
+        for(unsigned j=0;j<L2;++j)
+            second[j]+=std::int64_t(layer1[i])*row[j];
     }
+    std::array<std::int32_t,L2> layer2{};
+    for(unsigned j=0;j<L2;++j)
+        layer2[j]=clamp_act(round_div(second[j],QB));
 
     std::int64_t total=loaded->output_bias;
     for(unsigned k=0;k<L2;++k)
@@ -506,10 +527,14 @@ bool applicable(const Position& pos) {
     return selected && consistent(pos) && ensure(pos);
 }
 
-Value evaluate(const Position& pos) {
-    if(!applicable(pos)) return VALUE_ZERO;
+Value evaluate_cached(const Position& pos) {
+    // Caller has already checked applicable() in the search evaluation hook.
     const int score=stm_centipawns(pos,pos.stockless_v3_accumulator());
     return Value(score*int(PawnValueEg)/100);
+}
+
+Value evaluate(const Position& pos) {
+    return applicable(pos) ? evaluate_cached(pos) : VALUE_ZERO;
 }
 
 std::string status_json(const Variant* variant) {
