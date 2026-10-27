@@ -18,10 +18,18 @@ for var in ("OPENBLAS_NUM_THREADS","OMP_NUM_THREADS","MKL_NUM_THREADS"):
 
 import numpy as np
 from dataset_v3 import build,open_db,batches,sparse_batch
+from sparse_ft import touched_gradient, update_touched_adagrad
 from model_v3 import (initialize,activations,float_predict,integer_predict,
                        quantize,write_network,read_network,digest)
 
 VERSION="svnnue-v3-lite-adam1"
+SPARSE_VERSION="svnnue-v3-lite-adam-tail-sparse-ft-adagrad1"
+OPTIMIZERS=("dense_adam","sparse_ft_adagrad")
+
+def version_for(optimizer):
+    if optimizer not in OPTIMIZERS:
+        raise ValueError("Invalid NNUE3 optimizer")
+    return VERSION if optimizer=="dense_adam" else SPARSE_VERSION
 KEYS=("ft","bft","w1","b1","w2","b2","w3","b3")
 RATES={"ft":.002,"bft":.002,"w1":.004,"b1":.004,
        "w2":.005,"b2":.005,"w3":.075,"b3":.3}
@@ -35,14 +43,14 @@ def atomic_json(path,obj):
     tmp.write_text(json.dumps(obj,indent=2,sort_keys=True,allow_nan=False)+"\n")
     tmp.replace(path)
 
-def state_init(desc,db,seed):
+def state_init(desc,db,seed,optimizer="dense_adam"):
     average=db.execute("SELECT AVG(label) FROM examples WHERE part=0").fetchone()[0]
     w=initialize(desc,seed,offset_cp=float(average or 0.))
     return {"weights":w,"moment":{k:np.zeros_like(v) for k,v in w.items()},
             "variance":{k:np.zeros_like(v) for k,v in w.items()},
             "best":{k:v.copy() for k,v in w.items()},
             "epoch":0,"steps":0,"best_epoch":0,"best_loss":float("inf"),
-            "history":[]}
+            "history":[],"optimizer":optimizer}
 
 def store(out,state,signature,seed,batch_size):
     epoch=state["epoch"]
@@ -56,7 +64,8 @@ def store(out,state,signature,seed,batch_size):
              for k,v in arr.items()})
     tmp.replace(target)
     atomic_json(out/"latest.json",{
-        "schema":3,"version":VERSION,"sha256":digest(target),
+        "schema":3,"version":version_for(state["optimizer"]),
+        "optimizer":state["optimizer"],"sha256":digest(target),
         "filename":name,"dataset_signature":signature,"seed":seed,
         "batch_size":batch_size,"epoch":epoch,"steps":state["steps"],
         "best_epoch":state["best_epoch"],
@@ -66,9 +75,10 @@ def store(out,state,signature,seed,batch_size):
         if old.name!=name and old.name!=f"state-epoch-{epoch-1:04d}.npz":
             old.unlink()
 
-def restore(out,signature,seed,batch_size,descriptor):
+def restore(out,signature,seed,batch_size,descriptor,optimizer="dense_adam"):
     report=json.loads((out/"latest.json").read_text())
-    if (report.get("schema")!=3 or report.get("version")!=VERSION
+    if (report.get("schema")!=3 or report.get("version")!=version_for(optimizer)
+        or report.get("optimizer", "dense_adam")!=optimizer
         or report.get("dataset_signature")!=signature
         or report.get("batch_size")!=batch_size
         or report.get("seed")!=seed):
@@ -93,7 +103,7 @@ def restore(out,signature,seed,batch_size,descriptor):
     state.update({"epoch":report["epoch"],"steps":report["steps"],
                   "best_epoch":report["best_epoch"],
                   "best_loss":report["best_loss"] if report["best_loss"] is not None else float("inf"),
-                  "history":report["history"]})
+                  "history":report["history"],"optimizer":optimizer})
     return state
 
 def evaluate(w,db,part,dim,batch_size,integer=None):
@@ -140,12 +150,25 @@ def optimizer_step(state,white,black,side,target,epoch):
     gblack=np.where(side[:,None]==0,gcat[:,128:],gcat[:,:128])
     gwhite*=((prew>0)&(prew<1))
     gblack*=((preb>0)&(preb<1))
-    grads["ft"]=np.asarray(white.T@gwhite+black.T@gblack,dtype=np.float32)
+    optimizer=state.get("optimizer","dense_adam")
+    if optimizer=="sparse_ft_adagrad":
+        active,ft_gradient=touched_gradient(
+            white,black,gwhite,gblack,w["ft"].shape[0])
+    else:
+        grads["ft"]=np.asarray(white.T@gwhite+black.T@gblack,dtype=np.float32)
     grads["bft"]=(gwhite+gblack).sum(axis=0).astype(np.float32)
     state["steps"]+=1
     step=state["steps"]
     schedule=max(.2,math.exp(-epoch/80))
+    if optimizer=="sparse_ft_adagrad":
+        # Sparse FT optimizer has no momentum for missing rows. In particular,
+        # no dense input_dim-by-128 gradient or Adam update is allocated.
+        update_touched_adagrad(
+            w["ft"],state["variance"]["ft"],active,ft_gradient,
+            RATES["ft"]*schedule,REG["ft"],BOUNDS["ft"])
     for key in KEYS:
+        if key=="ft" and optimizer=="sparse_ft_adagrad":
+            continue
         g=grads[key]
         if key in REG:g+=REG[key]*w[key]
         if not np.isfinite(g).all():raise ValueError(f"Nonfinite Adam gradient: {key}")
@@ -173,7 +196,8 @@ def final(out,state,summary,db,batch,seed):
     ok=all(r[k]<=limits[k] for r in (qv,qt) for k in limits)
     with (out/"checkpoint_best.npz").open("wb") as handle:
         np.savez_compressed(handle,**best)
-    report={"schema":3,"trainer":VERSION,"descriptor":d,
+    report={"schema":3,"trainer":version_for(state["optimizer"]),
+            "optimizer":state["optimizer"],"descriptor":d,
             "dataset_signature":summary["signature"],
             "seed":seed,"epochs_completed":state["epoch"],"gradient_steps":state["steps"],
             "selected_epoch":state["best_epoch"],"history":state["history"],
@@ -183,6 +207,7 @@ def final(out,state,summary,db,batch,seed):
     atomic_json(out/"metrics.json",report)
     atomic_json(out/"network-manifest.json",{
         "schema":3,"format":"SVNNUE3-Lite",
+        "optimizer":state["optimizer"],
         "network":model.name,"network_sha256":digest(model),"descriptor":d,
         "dataset_signature":summary["signature"],
         "metrics_sha256":digest(out/"metrics.json"),
@@ -203,6 +228,7 @@ def main():
     p.add_argument("--batch-size",type=int,default=64)
     p.add_argument("--seed",type=int,default=20261027)
     p.add_argument("--resume",action="store_true")
+    p.add_argument("--optimizer",choices=OPTIMIZERS,default="dense_adam")
     a=p.parse_args()
     if not (1<=a.epochs<=1000 and 0<=a.stop_after_epoch<=a.epochs and
             8<=a.batch_size<=512 and 0<=a.seed<2**32):
@@ -214,8 +240,8 @@ def main():
     atomic_json(a.output/"index-summary.json",summary)
     with open_db(a.output/"index.sqlite3") as db:
         state=(restore(a.output,summary["signature"],a.seed,a.batch_size,
-                       summary["descriptor"]) if a.resume else
-               state_init(summary["descriptor"],db,a.seed))
+                       summary["descriptor"],a.optimizer) if a.resume else
+               state_init(summary["descriptor"],db,a.seed,a.optimizer))
         until=a.stop_after_epoch or a.epochs
         if until<=state["epoch"]:raise ValueError("No more epochs to resume")
         for epoch in range(state["epoch"]+1,until+1):
