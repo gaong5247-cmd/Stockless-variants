@@ -14,7 +14,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  networks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Google Drive download helper
+        run: python -m pip install --disable-pip-version-check gdown==5.2.0
+      - name: Download and SHA256-verify original FSF networks
+        run: python tools/fsf_networks.py download
+      - name: Reverify entire network catalog
+        run: python tools/fsf_networks.py verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fsf-nnue-networks
+          path: build/fsf-networks/
+          compression-level: 0
+          if-no-files-found: error
+
   linux:
+    needs: [networks]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -43,8 +64,15 @@ jobs:
           build/engine/src/stockless-variants check upstream/fairy-stockfish/src/variants.ini
       - name: Extract exact binary capabilities
         run: python tools/catalog_variants.py --engine build/engine/src/stockless-variants --validation build/engine-tests.json --require-all-builtins
+      - name: Download shared original FSF NNUE files
+        uses: actions/download-artifact@v4
+        with:
+          name: fsf-nnue-networks
+          path: build/fsf-networks
+      - name: Validate actual native FSF NNUE evaluations
+        run: python tests/fsf_nnue_runtime_test.py --engine build/engine/src/stockless-variants --report build/fsf-nnue-tests.json
       - name: Package corresponding source and verified executable
-        run: python tools/package.py --engine build/engine/src/stockless-variants --platform linux --arch ${{ matrix.arch }} --report build/engine-tests.json --report build/protocol-tests.json --report build/nnue-tests.json
+        run: python tools/package.py --engine build/engine/src/stockless-variants --platform linux --arch ${{ matrix.arch }} --report build/engine-tests.json --report build/protocol-tests.json --report build/nnue-tests.json --report build/fsf-nnue-tests.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -56,6 +84,7 @@ jobs:
           if-no-files-found: error
 
   windows:
+    needs: [networks]
     runs-on: windows-2022
     strategy:
       fail-fast: false
@@ -86,8 +115,15 @@ jobs:
         run: python tests/nnue_validation_test.py --engine build/engine/src/stockless-variants.exe --fixture-dir build/nnue-fixtures --report build/nnue-tests.json
       - name: Extract exact binary capabilities
         run: python tools/catalog_variants.py --engine build/engine/src/stockless-variants.exe --validation build/windows-tests.json --require-all-builtins
+      - name: Download shared original FSF NNUE files
+        uses: actions/download-artifact@v4
+        with:
+          name: fsf-nnue-networks
+          path: build/fsf-networks
+      - name: Validate actual native FSF NNUE evaluations on Windows
+        run: python tests/fsf_nnue_runtime_test.py --engine build/engine/src/stockless-variants.exe --report build/fsf-nnue-tests.json
       - name: Package corresponding source and verified executable
-        run: python tools/package.py --engine build/engine/src/stockless-variants.exe --platform windows --arch ${{ matrix.arch }} --report build/windows-tests.json --report build/protocol-tests.json --report build/nnue-tests.json
+        run: python tools/package.py --engine build/engine/src/stockless-variants.exe --platform windows --arch ${{ matrix.arch }} --report build/windows-tests.json --report build/protocol-tests.json --report build/nnue-tests.json --report build/fsf-nnue-tests.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -99,6 +135,7 @@ jobs:
           if-no-files-found: error
 
   android:
+    needs: [networks]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -125,6 +162,13 @@ jobs:
           python -c "from pathlib import Path; assert 'AArch64' in Path('build/android-elf.txt').read_text()"
       - name: Extract source capabilities (cross-compiled binary is not run on x64)
         run: python tools/catalog_variants.py
+      - name: Download and verify shared upstream NNUE files
+        uses: actions/download-artifact@v4
+        with:
+          name: fsf-nnue-networks
+          path: build/fsf-networks
+      - name: Verify FSF NNUE file identities (Android runtime needs device test)
+        run: python tools/fsf_networks.py verify
       - name: Package build-only Android executable and corresponding source
         run: python tools/package.py --engine build/engine/src/stockless-variants --platform android-arm64 --arch armv8
       - uses: actions/upload-artifact@v4
