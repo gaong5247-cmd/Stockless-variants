@@ -1,0 +1,117 @@
+name: Preserve certified SVNNUE3 million-per-game data on successful research run
+
+on:
+  workflow_run:
+    workflows:
+      - SVNNUE3 five-game diverse million-unique-position campaign
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release-v3-diverse-20261027
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == 'gaong5247-cmd/Stockless-variants' &&
+      github.event.workflow_run.head_branch == 'experimental/svnnue-v3-lite' &&
+      github.event.workflow_run.head_sha == '12063059cdabc355053f6c9373bfe9642858c63c' &&
+      github.event.workflow_run.id == 40475358787
+    runs-on: ubuntu-24.04
+    timeout-minutes: 220
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VARIANT: ${{ matrix.variant }}
+      DATA_RUN: '40475358787'
+      DATA_SOURCE: '12063059cdabc355053f6c9373bfe9642858c63c'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f307dbc0d94533bb9e19d883d5aa2b5e20e226ae
+      - name: Require that original v3 campaign completed successfully from the exact source
+        run: |
+          set -euo pipefail
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$DATA_RUN"
+          test "$(gh api "$endpoint" --jq .conclusion)" = success
+          test "$(gh api "$endpoint" --jq .head_sha)" = "$DATA_SOURCE"
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40475358787
+          pattern: v3-diverse-data-${{ matrix.variant }}-*
+          path: incoming
+          merge-multiple: false
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40475358787
+          name: v3-diverse-accepted-${{ matrix.variant }}
+          path: proof
+          github-token: ${{ github.token }}
+      - name: Independently recheck every labeled native state and source checksum
+        run: |
+          set -euo pipefail
+          python tools/nnue/archive_diverse_v3.py \
+            --root incoming --proof "proof/$VARIANT.json" \
+            --variant "$VARIANT" --output release-assets
+          (cd release-assets && sha256sum -c SHASUMS256.txt)
+          du -sh release-assets
+      - name: Publish separate non-latest research pre-release of original native datasets
+        run: |
+          set -euo pipefail
+          TAG="svnnue3-diverse-$VARIANT-1m-20261027"
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          m=json.loads(Path('release-assets/CORPUS_MANIFEST.json').read_text())
+          v=os.environ['VARIANT']
+          assert m['variant']==v and m['unique_native_input_fingerprints']>=1000000
+          assert m['source_revision']==os.environ['DATA_SOURCE']
+          text=[
+            '# SVNNUE3 '+v+' diverse royal-perspective data',
+            '',
+            f"Original real legal games: {m['native_games']:,}",
+            f"Native teacher-labeled positions: {m['generated_positions']:,}",
+            f"Distinct dual-perspective feature fingerprints: {m['unique_native_input_fingerprints']:,}",
+            'Exact experiment source: '+m['source_revision'],
+            'Successful generation: https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40475358787',
+            '',
+            '12 independent ZIPs: full games, native positions and teacher scores,',
+            'royal-perspective feature pairs, per-input SHA256 fingerprints,',
+            'diversity profile details, source manifests and source audits.',
+            'Proof and SHA-256 lists are packaged alongside original inputs.',
+            '',
+            'Experimental DATA ONLY, not a trained model or an Elo claim.',
+          ]
+          Path('release-notes.md').write_text('\n'.join(text)+'\n')
+          PY
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            origin=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json targetCommitish --jq .targetCommitish)
+            pre=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)
+            if [ "$origin" != "$DATA_SOURCE" ] || [ "$pre" != true ]; then
+              echo "::error::Existing release is not the expected research prerelease"
+              exit 1
+            fi
+            gh release edit "$TAG" -R "$GITHUB_REPOSITORY" \
+              --notes-file release-notes.md --prerelease
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
+              --target "$DATA_SOURCE" --prerelease \
+              --title "SVNNUE3 $VARIANT — certified one million diverse inputs" \
+              --notes-file release-notes.md
+          fi
+          for file in release-assets/*; do
+            gh release upload "$TAG" "$file" -R "$GITHUB_REPOSITORY" --clobber
+          done
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" \
+            --json url,isPrerelease,targetCommitish,assets \
+            --jq '{url,isPrerelease,targetCommitish,asset_count:(.assets|length)}'
