@@ -55,7 +55,8 @@ def open_db(path):
 def build(data,out,seed):
     data=Path(data)
     manifest=json.loads((data/"manifest.json").read_text())
-    if manifest.get("schema")!=3 or manifest.get("generator")!="svnnue3-native-selfplay-1":
+    if (manifest.get("schema")!=3 or manifest.get("generator") not in
+        ("svnnue3-native-selfplay-1","svnnue3-native-selfplay-2")):
         raise ValueError("Invalid native v3 generator version")
     descriptor=manifest["descriptor"]
     dim=validate_descriptor(descriptor)
