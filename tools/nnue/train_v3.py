@@ -10,6 +10,7 @@ import argparse
 import json
 import math
 import os
+import shutil
 from pathlib import Path
 import time
 
@@ -179,12 +180,44 @@ def optimizer_step(state,white,black,side,target,epoch):
         w[key]-=RATES[key]*schedule*corrected/denominator
         np.clip(w[key],-BOUNDS[key],BOUNDS[key],out=w[key])
 
-def final(out,state,summary,db,batch,seed,quant_qa=256):
+def final(out,state,summary,db,batch,seed,quant_qa=256,feature_attestation=None):
     if state["best_epoch"]==0:raise ValueError("No validation-selected v3 weights")
     best=state["best"]
-    # Network precision lives in the on-disk header. The original native
-    # royal-feature schema and training split remain completely unchanged.
+    # All source data and original label/game splits are immutable.
+    # Only change the target-runtime source fingerprint after independently
+    # replaying native royal features in BOTH the old teacher and new runtime.
     d=dict(summary["descriptor"],qa=quant_qa)
+    rebind_digest=None
+    if feature_attestation is not None:
+        source=Path(feature_attestation)
+        att=json.loads(source.read_text(encoding="utf-8"))
+        expected={
+            "schema":3,
+            "contract":"svnnue3-explicit-feature-rebind-v1",
+            "variant":d["variant"],
+            "source_dataset_signature":summary["signature"],
+            "source_rules_sha256":summary["descriptor"]["rules_sha256"],
+            "old_native_engine_sha256":summary["teacher_engine_sha256"],
+            "native_features_matched":True,
+            "source_labels_modified":False,
+        }
+        if any(att.get(key)!=value for key,value in expected.items()):
+            raise ValueError("Refusing native source/feature/label attestation mismatch")
+        target=att.get("target_rules_sha256")
+        if (not isinstance(target,str) or len(target)!=64
+            or target==d["rules_sha256"]
+            or att.get("frozen_real_heldout_positions_checked",0)<128
+            or att.get("native_game_rules_matched_on_checked_positions") is not True):
+            raise ValueError("Missing independent target-runtime native feature equivalence proof")
+        try:
+            bytes.fromhex(target)
+        except ValueError as exc:
+            raise ValueError("Invalid new engine rule SHA-256") from exc
+        if (out/"feature-compatibility.json").resolve()==source.resolve():
+            raise ValueError("Source attestation must remain outside new training output")
+        shutil.copyfile(source,out/"feature-compatibility.json")
+        rebind_digest=digest(out/"feature-compatibility.json")
+        d["rules_sha256"]=target
     quant=quantize(best,d)
     model=out/(d["variant"]+".svnnue")
     write_network(model,d,quant)
@@ -201,6 +234,9 @@ def final(out,state,summary,db,batch,seed,quant_qa=256):
     report={"schema":3,"trainer":version_for(state["optimizer"]),
             "optimizer":state["optimizer"],"descriptor":d,
             "quant_precision_qa":quant_qa,"feature_schema_qa":summary["descriptor"]["qa"],
+            "source_rules_sha256":summary["descriptor"]["rules_sha256"],
+            "trained_on_original_native_inputs":True,
+            "native_rebind_attested":rebind_digest is not None,
             "dataset_signature":summary["signature"],
             "seed":seed,"epochs_completed":state["epoch"],"gradient_steps":state["steps"],
             "selected_epoch":state["best_epoch"],"history":state["history"],
@@ -211,6 +247,7 @@ def final(out,state,summary,db,batch,seed,quant_qa=256):
     atomic_json(out/"network-manifest.json",{
         "schema":3,"format":"SVNNUE3-Lite",
         "optimizer":state["optimizer"],
+        **({"rebind_attestation_sha256":rebind_digest} if rebind_digest else {}),
         "network":model.name,"network_sha256":digest(model),"descriptor":d,
         "dataset_signature":summary["signature"],
         "metrics_sha256":digest(out/"metrics.json"),
@@ -233,6 +270,8 @@ def main():
     p.add_argument("--resume",action="store_true")
     p.add_argument("--optimizer",choices=OPTIMIZERS,default="dense_adam")
     p.add_argument("--quant-qa",type=int,choices=(256,512,1024,2048,4096),default=256)
+    p.add_argument("--native-feature-attestation",type=Path,default=None,
+                   help="SHA-verified frozen old/new native royal-feature replay; relabeling prohibited")
     a=p.parse_args()
     if not (1<=a.epochs<=1000 and 0<=a.stop_after_epoch<=a.epochs and
             8<=a.batch_size<=512 and 0<=a.seed<2**32):
@@ -268,7 +307,8 @@ def main():
                               "validation_mae_cp":round(validation["mae_cp"],3),
                               "best_epoch":state["best_epoch"]}),flush=True)
         if until==a.epochs:
-            print(json.dumps(final(a.output,state,summary,db,a.batch_size,a.seed,a.quant_qa)),flush=True)
+            print(json.dumps(final(a.output,state,summary,db,a.batch_size,a.seed,
+                                   a.quant_qa,a.native_feature_attestation)),flush=True)
         else:
             print(json.dumps({"checkpoint_only":True,"epoch":state["epoch"],
                               "source_rows":summary["input_rows"]}),flush=True)
