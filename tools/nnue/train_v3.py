@@ -179,11 +179,11 @@ def optimizer_step(state,white,black,side,target,epoch):
         w[key]-=RATES[key]*schedule*corrected/denominator
         np.clip(w[key],-BOUNDS[key],BOUNDS[key],out=w[key])
 
-def final(out,state,summary,db,batch,seed):
+def final(out,state,summary,db,batch,seed,quant_mode="legacy"):
     if state["best_epoch"]==0:raise ValueError("No validation-selected v3 weights")
     best=state["best"]
     d=summary["descriptor"]
-    quant=quantize(best,d)
+    quant=quantize(best,d,precision_mode=quant_mode)
     model=out/(d["variant"]+".svnnue")
     write_network(model,d,quant)
     loaded=read_network(model,d)
@@ -197,6 +197,7 @@ def final(out,state,summary,db,batch,seed):
     with (out/"checkpoint_best.npz").open("wb") as handle:
         np.savez_compressed(handle,**best)
     report={"schema":3,"trainer":version_for(state["optimizer"]),
+            "quantization_precision":quant_mode,
             "optimizer":state["optimizer"],"descriptor":d,
             "dataset_signature":summary["signature"],
             "seed":seed,"epochs_completed":state["epoch"],"gradient_steps":state["steps"],
@@ -207,6 +208,7 @@ def final(out,state,summary,db,batch,seed):
     atomic_json(out/"metrics.json",report)
     atomic_json(out/"network-manifest.json",{
         "schema":3,"format":"SVNNUE3-Lite",
+        "quantization_precision":quant_mode,
         "optimizer":state["optimizer"],
         "network":model.name,"network_sha256":digest(model),"descriptor":d,
         "dataset_signature":summary["signature"],
@@ -214,7 +216,10 @@ def final(out,state,summary,db,batch,seed):
         "optimizer_state_sha256":json.loads((out/"latest.json").read_text())["sha256"],
         "source_manifest_sha256":summary["manifest_sha256"],
         "quantization_passed":ok,"experimental":True,"elo":None})
-    if not ok:raise ValueError("v3 quantization error too large")
+    if not ok:
+        raise ValueError("v3 quantization exceeded safety gates: "+json.dumps(
+            {"precision":quant_mode,"validation_error":qv,"test_error":qt,
+             "limits":limits},sort_keys=True))
     return {"model":str(model),"epochs":state["epoch"],"selected_epoch":state["best_epoch"],
             "steps":state["steps"],"heldout_teacher_mae_cp":test["mae_cp"],
             "quantization_passed":ok}
@@ -229,6 +234,7 @@ def main():
     p.add_argument("--seed",type=int,default=20261027)
     p.add_argument("--resume",action="store_true")
     p.add_argument("--optimizer",choices=OPTIMIZERS,default="dense_adam")
+    p.add_argument("--quant-precision",choices=("legacy","high"),default="legacy")
     a=p.parse_args()
     if not (1<=a.epochs<=1000 and 0<=a.stop_after_epoch<=a.epochs and
             8<=a.batch_size<=512 and 0<=a.seed<2**32):
@@ -264,7 +270,8 @@ def main():
                               "validation_mae_cp":round(validation["mae_cp"],3),
                               "best_epoch":state["best_epoch"]}),flush=True)
         if until==a.epochs:
-            print(json.dumps(final(a.output,state,summary,db,a.batch_size,a.seed)),flush=True)
+            print(json.dumps(final(a.output,state,summary,db,a.batch_size,a.seed,
+                                        quant_mode=a.quant_precision)),flush=True)
         else:
             print(json.dumps({"checkpoint_only":True,"epoch":state["epoch"],
                               "source_rows":summary["input_rows"]}),flush=True)

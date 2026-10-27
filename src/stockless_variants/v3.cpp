@@ -30,6 +30,8 @@ namespace {
 
 constexpr std::size_t MaximumFileBytes = 32 * 1024 * 1024;
 constexpr std::uint8_t Magic[8] = {'S','V','N','N','U','E','3',0};
+constexpr std::uint8_t MagicQ[8] = {'S','V','N','N','U','E','3','Q'};
+constexpr std::int32_t HighFtFactor = 4, HighTailFactor = 2;
 constexpr std::int32_t MaxFeatureMass = 512;
 constexpr std::uint32_t FormatVersion = 3;
 constexpr std::uint32_t FeatureVersion = 3;
@@ -47,6 +49,7 @@ struct Descriptor {
 struct Model {
     const Variant* variant=nullptr;
     Descriptor descriptor;
+    std::int32_t ft_factor=1, tail_factor=1;
     std::vector<std::int16_t> transformer; // [feature][128], shared by two perspectives
     std::array<std::int32_t, Hidden> ft_bias{};
     std::array<std::int16_t, Hidden*2*L1> first{}; // [2*128][32]
@@ -318,6 +321,12 @@ bool ensure(const Position& pos) {
 std::int32_t clamp_act(std::int64_t value) {
     return std::int32_t(std::clamp<std::int64_t>(value,0,QA));
 }
+std::int32_t clamp_ft(std::int64_t value) {
+    // The quantized tail applies its own factor. This preserves the full
+    // high-resolution transformer activation until after layer one.
+    return std::int32_t(std::clamp<std::int64_t>(
+        value,0,std::int64_t(QA)*loaded->ft_factor));
+}
 std::int64_t round_div(std::int64_t value,std::int64_t divisor) {
     return value>=0 ? (value+divisor/2)/divisor
                     : -((-value+divisor/2)/divisor);
@@ -328,12 +337,13 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
     const int first=int(pos.side_to_move());
     for(unsigned color=0;color<2;++color)
         for(unsigned k=0;k<Hidden;++k)
-            act[color*Hidden+k]=clamp_act(state.values[color==0?first:1-first][k]);
+            act[color*Hidden+k]=clamp_ft(state.values[color==0?first:1-first][k]);
 
     // The on-disk matrices are row-major. Accumulate each contiguous row
     // into all output neurons, and skip zero clipped activations entirely.
     std::array<std::int64_t,L1> first_acc{};
-    for(unsigned j=0;j<L1;++j)first_acc[j]=loaded->first_bias[j];
+    for(unsigned j=0;j<L1;++j)
+        first_acc[j]=std::int64_t(loaded->first_bias[j])*loaded->ft_factor;
     for(unsigned i=0;i<act.size();++i) {
         if(!act[i])continue;
         const auto* row=loaded->first.data()+i*L1;
@@ -342,7 +352,8 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
     }
     std::array<std::int32_t,L1> layer1{};
     for(unsigned j=0;j<L1;++j)
-        layer1[j]=clamp_act(round_div(first_acc[j],QB));
+        layer1[j]=clamp_act(round_div(
+            first_acc[j],std::int64_t(QB)*loaded->ft_factor*loaded->tail_factor));
 
     std::array<std::int64_t,L2> second{};
     for(unsigned j=0;j<L2;++j)second[j]=loaded->second_bias[j];
@@ -354,12 +365,12 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
     }
     std::array<std::int32_t,L2> layer2{};
     for(unsigned j=0;j<L2;++j)
-        layer2[j]=clamp_act(round_div(second[j],QB));
+        layer2[j]=clamp_act(round_div(second[j],std::int64_t(QB)*loaded->tail_factor));
 
     std::int64_t total=loaded->output_bias;
     for(unsigned k=0;k<L2;++k)
         total+=std::int64_t(layer2[k])*loaded->output[k];
-    return std::int32_t(std::clamp(round_div(total,QA*QB),
+    return std::int32_t(std::clamp(round_div(total,std::int64_t(QA)*QB*loaded->tail_factor),
                          std::int64_t(-10000),std::int64_t(10000)));
 }
 
@@ -471,8 +482,10 @@ bool load(const std::string& path,const Variant* variant,std::string& error) {
     stream.seekg(0);
     if(!stream.read(reinterpret_cast<char*>(data.data()),std::streamsize(data.size())))
         {error="truncated SVNNUE3 file";return false;}
-    if(!std::equal(std::begin(Magic),std::end(Magic),data.begin()))
-        {error="not an SVNNUE3 network";return false;}
+    const bool highPrecision=std::equal(std::begin(MagicQ),std::end(MagicQ),data.begin());
+    const bool legacyPrecision=std::equal(std::begin(Magic),std::end(Magic),data.begin());
+    if(!highPrecision && !legacyPrecision)
+        {error="not a versioned SVNNUE3 or SVNNUE3Q network";return false;}
     const std::uint32_t wanted[]={
         FormatVersion,FeatureVersion,Hidden,d.dimensions,
         std::uint32_t(d.width),std::uint32_t(d.height),std::uint32_t(d.types.size()),
@@ -500,6 +513,8 @@ bool load(const std::string& path,const Variant* variant,std::string& error) {
     auto candidate=std::make_unique<Model>();
     candidate->variant=variant;
     candidate->descriptor=d;
+    candidate->ft_factor=highPrecision ? HighFtFactor : 1;
+    candidate->tail_factor=highPrecision ? HighTailFactor : 1;
     candidate->name=path;
     candidate->transformer.resize(std::size_t(d.dimensions)*Hidden);
     std::size_t offset=HeaderSize;
@@ -546,6 +561,8 @@ std::string status_json(const Variant* variant) {
        <<",\"model_variant\":"<<quote(loaded?loaded->descriptor.name:"")
        <<",\"input_dim\":"<<(loaded?loaded->descriptor.dimensions:0)
        <<",\"hidden_dim\":"<<Hidden
+       <<",\"precision_mode\":"<<quote(
+            loaded && loaded->ft_factor!=1 ? "high" : "legacy")
 #if defined(USE_AVX2)
        <<",\"accumulator_implementation\":\"avx2\""
 #else

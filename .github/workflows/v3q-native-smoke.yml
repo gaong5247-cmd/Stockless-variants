@@ -1,0 +1,114 @@
+name: SVNNUE3Q increased-precision native train and parity
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-precision]
+    paths:
+      - '.github/workflows/v3q-native-smoke.yml'
+      - 'src/stockless_variants/v3.cpp'
+      - 'tools/nnue/model_v3.py'
+      - 'tools/nnue/train_v3.py'
+      - 'tests/v3_precision_test.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v3q:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned sparse numerical reference implementation
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Prove legacy compatibility and high precision serializer bit identity
+        run: python tests/v3_precision_test.py
+      - name: Build native engine with unchanged royal feature vocabulary
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Generate variant-native diverse teacher labels for v3
+        run: |
+          python tools/nnue/generate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --variant "$VARIANT" --games 32 --max-plies 96 --depth 3 \
+            --seed 20261027 --opening-plies 8 \
+            --profile balanced --shard-id 0 --output build/data
+      - name: Train with sparse row AdaGrad and high-precision quantization, stop and resume
+        run: |
+          python tools/nnue/train_v3.py \
+            --data build/data --output build/model \
+            --epochs 6 --stop-after-epoch 2 --batch-size 64 \
+            --seed 20261027 --optimizer sparse_ft_adagrad \
+            --quant-precision high
+          python tools/nnue/train_v3.py \
+            --data build/data --output build/model \
+            --epochs 6 --batch-size 64 \
+            --seed 20261027 --optimizer sparse_ft_adagrad \
+            --quant-precision high --resume
+      - name: Assert distinct Q magic and binding to native model rules
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('build/model/network-manifest.json').read_text())
+          q=Path('build/model')/m['network']
+          assert q.read_bytes()[:8]==b'SVNNUE3Q'
+          assert m['quantization_precision']=='high'
+          assert m['quantization_passed']
+          print('SVNNUE3Q verified for',m['descriptor']['variant'])
+          PY
+      - name: Validate actual C++ integer inference and legal search on heldout complete games
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model-dir build/model --positions 32 \
+            --report build/model/runtime-validation.json
+      - name: Report actual fixed-point error without claiming Elo
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('build/model')
+          lines=[f"## {os.environ['VARIANT']} v3Q quantization"]
+          if (root/'metrics.json').exists():
+              m=json.loads((root/'metrics.json').read_text())
+              lines.append('Heldout test error: '+str(m['quantization']['test']))
+              lines.append('Gate passed: '+str(m['quantization_passed']))
+              lines.append('Teacher MAE (not Elo): '+str(m['test']['mae_cp']))
+          if (root/'runtime-validation.json').exists():
+              n=json.loads((root/'runtime-validation.json').read_text())
+              lines.append(f"Native parity {n['passed']} checks, failed {n['failed']}.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svnnue3q-smoke-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/model/*.svnnue
+            build/model/metrics.json
+            build/model/network-manifest.json
+            build/model/index-summary.json
+            build/model/latest.json
+            build/model/runtime-validation.json
+          retention-days: 14
+          if-no-files-found: warn

@@ -11,6 +11,14 @@ import struct
 import numpy as np
 
 MAGIC=b"SVNNUE3\x00"
+MAGIC_Q=b"SVNNUE3Q"  # Native dual-precision int16 weight layout, same royal input features
+PRECISION_MODES={"legacy":(1,1),"high":(4,2)}  # FT x4, tail weight/bias x2
+
+def precision(q):
+    mode=q.get("_precision_mode","legacy")
+    if mode not in PRECISION_MODES:
+        raise ValueError("Unknown quantized v3 precision mode")
+    return PRECISION_MODES[mode]
 HEADER_BYTES=160
 HIDDEN=128
 L1=32
@@ -90,13 +98,19 @@ def float_predict(w,white,black,side):
     *_,h2=activations(w,white,black,side)
     return np.asarray(h2@w["w3"]+w["b3"][0],dtype=np.float32)
 
-def quantize(w,d):
+def quantize(w,d,precision_mode="legacy"):
+    if precision_mode not in PRECISION_MODES:
+        raise ValueError("Unsupported V3 quantization mode")
+    ft_scale,tail_scale=PRECISION_MODES[precision_mode]
     expected=shapes(d)
     result={}
     for key,_,dtype,scale in SHAPES:
         a=np.asarray(w[key],dtype=np.float64)
         if a.shape!=expected[key] or not np.isfinite(a).all():
             raise ValueError(f"Invalid fp32 tensor {key}")
+        # Q mode raises fixed-point weight precision without changing
+        # the V3 royal-feature vocabulary or signed accumulator width.
+        scale *= ft_scale if key in ("ft","bft") else tail_scale
         q=np.copysign(np.floor(np.abs(a*scale)+.5),a)
         if dtype=="<i2":
             if np.any(q< -32768) or np.any(q>32767):
@@ -107,6 +121,8 @@ def quantize(w,d):
         elif np.any(q<-(1<<31)) or np.any(q>(1<<31)-1):
             raise ValueError(f"int32 bias overflow: {key}")
         result[key]=q.astype(dtype)
+    if precision_mode=="high":
+        result["_precision_mode"]="high"
     return result
 
 def signed_round(value,divisor):
@@ -114,6 +130,7 @@ def signed_round(value,divisor):
     return np.sign(x)*((np.abs(x)+divisor//2)//divisor)
 
 def integer_predict(q,white,black,side):
+    ft_scale,tail_scale=precision(q)
     # Preserve CSR sparsity: converting an entire sparse batch with
     # np.asarray produces an object scalar and fails integer reference math.
     w=white.astype(np.int64) if hasattr(white,"tocsr") else np.asarray(white,dtype=np.int64)
@@ -124,13 +141,16 @@ def integer_predict(q,white,black,side):
     ab=b@ft+bias
     if max(np.max(np.abs(aw),initial=0),np.max(np.abs(ab),initial=0)) >= (1<<31):
         raise ValueError("Transformer overflow")
-    aa=np.clip(aw,0,QA)
-    bb=np.clip(ab,0,QA)
+    aa=np.clip(aw,0,QA*ft_scale)
+    bb=np.clip(ab,0,QA*ft_scale)
     stack=np.concatenate([np.where(side[:,None]==0,aa,bb),
                           np.where(side[:,None]==0,bb,aa)],axis=1)
-    h1=np.clip(signed_round(stack@q["w1"].astype(np.int64)+q["b1"].astype(np.int64),QB),0,QA)
-    h2=np.clip(signed_round(h1@q["w2"].astype(np.int64)+q["b2"].astype(np.int64),QB),0,QA)
-    scores=signed_round(h2@q["w3"].astype(np.int64)+q["b3"].astype(np.int64)[0],QA*QB)
+    h1=np.clip(signed_round(stack@q["w1"].astype(np.int64)+q["b1"].astype(np.int64)*ft_scale,
+                         QB*ft_scale*tail_scale),0,QA)
+    h2=np.clip(signed_round(h1@q["w2"].astype(np.int64)+q["b2"].astype(np.int64),
+                         QB*tail_scale),0,QA)
+    scores=signed_round(h2@q["w3"].astype(np.int64)+q["b3"].astype(np.int64)[0],
+                        QA*QB*tail_scale)
     return np.clip(scores,-10000,10000).astype(np.int64)
 
 def write_network(path,d,q):
@@ -143,7 +163,7 @@ def write_network(path,d,q):
     if len(payload)+HEADER_BYTES>MAX_FILE_BYTES:
         raise ValueError("Network exceeds native bounded file size")
     head=bytearray(HEADER_BYTES)
-    head[:8]=MAGIC
+    head[:8]=MAGIC_Q if precision(q)[0]>1 else MAGIC
     struct.pack_into("<10I",head,8,3,3,HIDDEN,dim,d["width"],d["height"],
                      len(d["type_ids"]),QA,QB,len(payload))
     name=d["variant"].encode("ascii")
@@ -159,8 +179,9 @@ def write_network(path,d,q):
 def read_network(path,d):
     dim=validate_descriptor(d)
     data=Path(path).read_bytes()
-    if not HEADER_BYTES<=len(data)<=MAX_FILE_BYTES or data[:8]!=MAGIC:
-        raise ValueError("SVNNUE3 magic or bounds mismatch")
+    if not HEADER_BYTES<=len(data)<=MAX_FILE_BYTES or data[:8] not in (MAGIC,MAGIC_Q):
+        raise ValueError("SVNNUE3/Q magic or bounds mismatch")
+    is_high=data[:8]==MAGIC_Q
     expected=(3,3,HIDDEN,dim,d["width"],d["height"],len(d["type_ids"]),
               QA,QB,len(data)-HEADER_BYTES)
     if struct.unpack_from("<10I",data,8)!=expected:
@@ -183,4 +204,6 @@ def read_network(path,d):
         off+=count*np.dtype(dtype).itemsize
     if off!=len(payload) or np.max(np.abs(result["bft"].astype(np.int64)))>1<<20:
         raise ValueError("Corrupt v3 model payload")
+    if is_high:
+        result["_precision_mode"]="high"
     return result
