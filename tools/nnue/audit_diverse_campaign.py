@@ -26,7 +26,9 @@ def digest(path):
             h.update(chunk)
     return h.hexdigest()
 
-def verify(root,variant,shards,min_unique,min_profiles=4):
+def verify(root,variant,shards,min_unique,min_profiles=4,expected_games=1024):
+    if shards<4 or shards%len(PROFILES)!=0:
+        raise ValueError('Shard count must be a positive multiple of all four profiles')
     root=Path(root)
     directory=[folder for folder in root.iterdir()
                if folder.is_dir() and (folder/"audit.json").is_file()]
@@ -58,7 +60,7 @@ def verify(root,variant,shards,min_unique,min_profiles=4):
         if type(seed) is not int or seed in seen_seeds:
             raise ValueError(f"{variant}: duplicate or missing independent shard seed")
         seen_seeds.add(seed)
-        if (audit.get("games")!=1024 or audit.get("positions",0)<256
+        if (audit.get("games")!=expected_games or audit.get("positions",0)<expected_games
             or audit.get("completed_games",0)+audit.get("censored_games",0)!=audit.get("games")):
             raise ValueError("Missing game rows or manufactured censored outcomes")
         if audit.get("fingerprint_policy")!="sha256(canonical([side,features_white,features_black]))":
@@ -70,7 +72,7 @@ def verify(root,variant,shards,min_unique,min_profiles=4):
         if (audit["descriptor"]!=descriptor or audit["rules_sha256"]!=rule
             or audit["source_engine_sha256"]!=teacher):
             raise ValueError("Mixed teacher binary, royal features, or native rules")
-        if audit["profile"]!=PROFILES[i//3]:
+        if audit["profile"]!=PROFILES[i//(shards//len(PROFILES))]:
             raise ValueError("Unexpected shard-profile allocation")
         fingerprints=folder/"fingerprints.sha256.bin"
         expected=audit["files"]["fingerprints.sha256.bin"]
@@ -143,10 +145,11 @@ def main():
     p.add_argument("--variant",required=True,choices=("chess","shogi","janggi","xiangqi","makruk"))
     p.add_argument("--shards",type=int,default=12)
     p.add_argument("--min-unique",type=int,default=1000000)
+    p.add_argument("--expected-games",type=int,default=1024)
     p.add_argument("--output",type=Path,required=True)
     args=p.parse_args()
     try:
-        result=verify(args.input_root,args.variant,args.shards,args.min_unique)
+        result=verify(args.input_root,args.variant,args.shards,args.min_unique,expected_games=args.expected_games)
         args.output.parent.mkdir(parents=True,exist_ok=True)
         args.output.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n")
         print(json.dumps({k:result[k] for k in

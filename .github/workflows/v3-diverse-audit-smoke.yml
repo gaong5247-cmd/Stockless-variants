@@ -1,0 +1,62 @@
+name: Verify multi-shard SVNNUE3 cardinality reducer on independent smoke corpora
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-diverse-audit-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit-small:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40475004484
+          name: diverse-smoke-${{ matrix.variant }}
+          github-token: ${{ github.token }}
+          path: build/diverse-small
+      - name: Require real smoke source manifests, SHA-256 uniqueness and four distinct teacher profiles
+        run: |
+          python tools/nnue/audit_diverse_campaign.py \
+            --input-root build/diverse-small --variant "$VARIANT" \
+            --shards 4 --expected-games 10 --min-unique 1 \
+            --output "build/diverse-small-results/$VARIANT.json"
+      - name: Check unique input count and profile distribution in the report
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path('build/diverse-small-results')/(os.environ['VARIANT']+'.json')
+          j=json.loads(p.read_text())
+          assert j['variant']==os.environ['VARIANT']
+          assert j['games']==40
+          assert len(j['profiles_games'])==4
+          assert j['unique_model_inputs_sha256']>0
+          assert j['unique_target_met']
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write(f"### {j['variant']} cross-shard unique proof\n\n")
+              out.write(f"40 real legal games, generated rows {j['generated_positions']}, "
+                        f"distinct native royal inputs {j['unique_model_inputs_sha256']}, "
+                        f"duplicates {j['duplicate_positions']}.\n")
+          print(json.dumps({'variant':j['variant'],'unique':j['unique_model_inputs_sha256']}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-diverse-smoke-${{ matrix.variant }}
+          path: build/diverse-small-results/${{ matrix.variant }}.json
+          retention-days: 14
