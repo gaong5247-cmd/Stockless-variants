@@ -31,7 +31,7 @@ bool fsf_bundle_available() {
 bool fsf_network_exists_for_variant() {
     const std::string variant = std::string(Options["UCI_Variant"]);
     const std::string alias = variants.find(variant)->second->nnueAlias;
-    std::istringstream paths(std::string(Options["EvalFile"]));
+    std::istringstream paths{std::string(Options["EvalFile"])};
     std::string path;
     while (std::getline(paths, path, SepChar)) {
         const std::string basename = path.substr(path.find_last_of("\\/") + 1);
@@ -132,4 +132,4 @@ def apply(out: Path):
     replace_once(option, '  o["Use NNUE"]              << Option(false, on_use_NNUE);',
                  '  o["Use NNUE"]              << Option(fsf_bundle_available(), on_use_NNUE);')
     replace_once(option, '  o["EvalFile"]              << Option("<empty>", on_eval_file);',
-                 '  o["EvalFile"]              << Option(fsf_bundle_eval_files(), on_eval_file);')
+                 '  o["EvalFile"]              << Option(fsf_bundle_eval_files().c_str(), on_eval_file);')
