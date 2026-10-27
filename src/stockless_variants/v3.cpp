@@ -546,6 +546,11 @@ std::string status_json(const Variant* variant) {
        <<",\"model_variant\":"<<quote(loaded?loaded->descriptor.name:"")
        <<",\"input_dim\":"<<(loaded?loaded->descriptor.dimensions:0)
        <<",\"hidden_dim\":"<<Hidden
+#if defined(USE_AVX2)
+       <<",\"accumulator_implementation\":\"avx2\""
+#else
+       <<",\"accumulator_implementation\":\"scalar\""
+#endif
        <<",\"network_generation\":"<<generation
        <<",\"rules_sha256\":"<<quote(STOCKLESS_NNUE_RULES_SHA256)<<"}";
     return out.str();
