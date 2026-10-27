@@ -1,0 +1,165 @@
+name: TRUE RETRAIN old 8.153M SVNNUE3 data (zero new games)
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths: ['.github/workflows/v3-retrain-original-8m.yml']
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: real-eight-million-retrain-20261027
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VARIANT: ${{ matrix.variant }}
+      DATA_RUN: '40475358787'
+      DATA_SHA: '12063059cdabc355053f6c9373bfe9642858c63c'
+      PROOF_RUN: '40505070066'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned CPU sparse-training dependencies
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Verify certified original 8.153M data source, not generator invocation
+        run: |
+          set -euo pipefail
+          root="repos/$GITHUB_REPOSITORY/actions/runs"
+          test "$(gh api "$root/$PROOF_RUN" --jq .conclusion)" = success
+          test "$(gh api "$root/$DATA_RUN" --jq .head_sha)" = "$DATA_SHA"
+          generated="$(gh api "$root/$DATA_RUN/jobs?per_page=100" --jq '[.jobs[]|select((.name|startswith("generate (")) and .conclusion=="success")]|length')"
+          test "$generated" = 60
+          mkdir -p build/proof
+          gh run download "$PROOF_RUN" -R "$GITHUB_REPOSITORY" \
+            --name "recovered-million-proof-$VARIANT" --dir build/proof
+          test -s "build/proof/$VARIANT.json"
+      - name: Download the TWELVE original SHA-certified game shards, without generating anything
+        run: |
+          set -euo pipefail
+          for shard in $(seq 0 11); do
+            name="v3-diverse-data-$VARIANT-$shard"
+            target="build/existing/$name"
+            mkdir -p "$target"
+            gh run download "$DATA_RUN" -R "$GITHUB_REPOSITORY" --name "$name" --dir "$target"
+            test -s "$target/games.jsonl"
+            test -s "$target/positions.jsonl"
+            test -s "$target/fingerprints.sha256.bin"
+            test -s "$target/manifest.json"
+          done
+      - name: SHA-check and losslessly combine the unmodified old data
+        run: |
+          python tools/nnue/merge_diverse_v3.py \
+            --input-root build/existing --output "build/old-corpus/$VARIANT" \
+            --variant "$VARIANT" --shards 12 --games-per-shard 1024
+          python tools/nnue/audit_retraining.py \
+            --proof "build/proof/$VARIANT.json" \
+            --merged "build/old-corpus/$VARIANT/manifest.json"
+      - name: Build current v3 high-precision native evaluator, no data generation
+        run: |
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/latest-engine
+          cp build/engine/src/stockless-variants build/latest-engine/stockless-variants
+      - name: Recover exact OLD teacher executable used on original 8M
+        run: |
+          mkdir -p build/original-engine
+          gh run download "$DATA_RUN" -R "$GITHUB_REPOSITORY" \
+            --name "v3-diverse-teacher-$DATA_SHA" --dir build/original-engine
+          tar -xzf build/original-engine/stockless-v3-teacher.tgz
+          chmod +x build/engine/src/stockless-variants
+      - name: Attest unchanged native royal features and original FENs on 128 heldout games
+        run: |
+          python tools/nnue/rebind_v3_features.py \
+            --source "build/old-corpus/$VARIANT" --out "build/rebind/$VARIANT" \
+            --old-engine build/engine/src/stockless-variants \
+            --new-engine build/latest-engine/stockless-variants \
+            --seed 20261027 --positions 128
+      - name: TRAIN FROM SCRATCH on original 8M, 2 new epochs and full optimizer checkpoint
+        run: |
+          python tools/nnue/train_v3.py \
+            --data "build/old-corpus/$VARIANT" --output "build/new-weights/$VARIANT" \
+            --epochs 6 --stop-after-epoch 2 --batch-size 256 --seed 20261027 \
+            --optimizer sparse_ft_adagrad --quant-qa 2048 \
+            --native-feature-attestation "build/rebind/$VARIANT/feature-compatibility.json"
+      - name: Continue training for FOUR more real gradient epochs, NOT re-export
+        run: |
+          python tools/nnue/train_v3.py \
+            --data "build/old-corpus/$VARIANT" --output "build/new-weights/$VARIANT" \
+            --epochs 6 --resume --batch-size 256 --seed 20261027 \
+            --optimizer sparse_ft_adagrad --quant-qa 2048 \
+            --native-feature-attestation "build/rebind/$VARIANT/feature-compatibility.json"
+      - name: Verify newly trained QA2048 C++ evaluation and real legal searches
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/latest-engine/stockless-variants \
+            --model-dir "build/new-weights/$VARIANT" --positions 128 \
+            --report "build/new-weights/$VARIANT/native-validation.json"
+      - name: Prove actual new gradient steps, original data only, unchanged strict gates
+        run: |
+          python tools/nnue/audit_retraining.py \
+            --proof "build/proof/$VARIANT.json" \
+            --merged "build/old-corpus/$VARIANT/manifest.json" \
+            --model-dir "build/new-weights/$VARIANT"
+      - name: Print verified training evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          v=os.environ['VARIANT']
+          p=Path('build/new-weights')/v
+          lines=['## Real from-scratch SVNNUE3 '+v+' training on EXISTING 8M positions']
+          f=p/'metrics.json'
+          if f.exists():
+              j=json.loads(f.read_text())
+              lines.append('NEW gradient steps: '+str(j['gradient_steps'])+
+                           ', full epochs: '+str(j['epochs_completed'])+
+                           ', best epoch: '+str(j['selected_epoch']))
+              lines.append('Teacher heldout MAE: '+str(j['test']['mae_cp'])+
+                           ' cp, strict QA2048 gate: '+str(j['quantization_passed']))
+          f=p/'native-validation.json'
+          if f.exists():
+              j=json.loads(f.read_text())
+              lines.append('Native C++ parity and search checks: '+str(j['passed'])+
+                           ', failed: '+str(j['failed']))
+          lines.append('New self-play games generated: ZERO. No Elo claim.')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: actual-retrained-old-8m-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/new-weights/${{ matrix.variant }}/*.svnnue
+            build/new-weights/${{ matrix.variant }}/latest.json
+            build/new-weights/${{ matrix.variant }}/state-epoch-*.npz
+            build/new-weights/${{ matrix.variant }}/checkpoint_best.npz
+            build/new-weights/${{ matrix.variant }}/metrics.json
+            build/new-weights/${{ matrix.variant }}/network-manifest.json
+            build/new-weights/${{ matrix.variant }}/index-summary.json
+            build/new-weights/${{ matrix.variant }}/native-validation.json
+            build/new-weights/${{ matrix.variant }}/feature-compatibility.json
+          retention-days: 30
+          if-no-files-found: warn
