@@ -1,4 +1,4 @@
-name: Recover and certify original 5M+ diverse SVNNUE3 corpus
+name: Recover and certify 5M original diverse SVNNUE3 data
 
 on:
   push:
@@ -12,162 +12,161 @@ permissions:
   actions: read
 
 concurrency:
-  group: recovered-v3-million-20261027
+  group: svnnue3-recover-million-20261027
   cancel-in-progress: false
 
 jobs:
-  recover:
+  verify-original:
     runs-on: ubuntu-24.04
-    timeout-minutes: 190
+    timeout-minutes: 110
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 5
       matrix:
         variant: [chess, shogi, janggi, xiangqi, makruk]
     env:
-      GH_TOKEN: ${{ github.token }}
       VARIANT: ${{ matrix.variant }}
-      ORIGINAL_RUN: '40475358787'
-      ORIGINAL_SOURCE: '12063059cdabc355053f6c9373bfe9642858c63c'
+      SOURCE_RUN: '40475358787'
+      SOURCE_SHA: '12063059cdabc355053f6c9373bfe9642858c63c'
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Confirm original 60 native generation jobs succeeded at pinned commit
+      - name: Prove all 60 original native-generation jobs succeeded at the exact pinned source
         shell: bash
         run: |
           set -euo pipefail
-          API="repos/$GITHUB_REPOSITORY/actions/runs/$ORIGINAL_RUN"
-          test "$(gh api "$API" --jq '.head_sha')" = "$ORIGINAL_SOURCE"
-          test "$(gh api "$API" --jq '.status')" = completed
-          # Original aggregate run is FAILED only because its audit-summary
-          # lacked the seed attribute; all generator jobs were successful.
-          finished=$(gh api "$API/jobs?per_page=100" --jq \
-            '[.jobs[] | select((.name | startswith("generate (")) and .conclusion=="success")] | length')
-          if [[ "$finished" != 60 ]]; then
-            echo "::error::Expected all 60 original legal native-data generators to have succeeded; found $finished"
-            exit 1
-          fi
-          echo "Verified original generation source $ORIGINAL_SOURCE (60/60 successful data jobs)"
-      - name: Download all 12 original shards individually (GitHub has over 100 artifacts)
+          mkdir -p build
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > build/original-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/jobs?per_page=100" > build/original-jobs.json
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          run=json.loads(Path('build/original-run.json').read_text())
+          jobs=json.loads(Path('build/original-jobs.json').read_text())['jobs']
+          assert run['head_sha']==os.environ['SOURCE_SHA']
+          assert run['status']=='completed'
+          generation=[x for x in jobs if x['name'].startswith('generate (')]
+          assert len(generation)==60
+          assert all(x['conclusion']=='success' for x in generation)
+          assert sum(x['name']=='teacher' and x['conclusion']=='success' for x in jobs)==1
+          # The old source run failed ONLY because an audit-v1 reducer expected
+          # a missing seed field; every one of 60 native generation jobs passed.
+          print(f'Pinned source verified: {len(generation)} / 60 generator jobs succeeded')
+          PY
+      - name: Download immutable original 12 native source shards
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40475358787
+          pattern: v3-diverse-data-${{ matrix.variant }}-*
+          github-token: ${{ github.token }}
+          path: build/original-data
+          merge-multiple: false
+      - name: Download immutable first-generation audits and full 256-bit fingerprints
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40475358787
+          pattern: v3-diverse-audit-${{ matrix.variant }}-*
+          github-token: ${{ github.token }}
+          path: build/original-audits
+          merge-multiple: false
+      - name: Recover missing audit-v1 seed ONLY from original sha256-matched manifests
         shell: bash
         run: |
           set -euo pipefail
-          for shard in $(seq 0 11); do
-            destination="build/source/v3-diverse-data-$VARIANT-$shard"
-            mkdir -p "$destination"
-            gh run download "$ORIGINAL_RUN" -R "$GITHUB_REPOSITORY"               --name "v3-diverse-data-$VARIANT-$shard"               --dir "$destination"
-            test -s "$destination/manifest.json" || {
-              echo "::error::Original shard artifact missing: $VARIANT/$shard"
-              exit 1
-            }
-          done
-          echo "All twelve exact original source archives retrieved for $VARIANT"
-      - name: Reject incomplete archive pagination and list exact 12 downloaded manifests
-        shell: bash
-        run: |
-          set -euo pipefail
-          for shard in $(seq 0 11); do
-            root="build/source/v3-diverse-data-$VARIANT-$shard"
-            test -s "$root/manifest.json"
-            test -s "$root/audit.json"
-            test -s "$root/positions.jsonl"
-            test -s "$root/games.jsonl"
-            test -s "$root/fingerprints.sha256.bin"
-            sha256sum "$root/manifest.json"
-          done
-      - name: Check deterministic original audit recovery script
-        run: python3 -m py_compile tools/recover_diverse_v3.py
-      - name: Independently verify the original 12 SHA-bound manifests, game histories and missing seeds
-        run: |
-          python tools/recover_diverse_v3.py \
-            --source build/source --variant "$VARIANT" \
-            --unique-goal 1000000 \
+          python3 tools/nnue/audit_diverse_campaign.py \
+            --input-root build/original-audits \
+            --original-root build/original-data \
+            --variant "$VARIANT" --shards 12 --min-unique 1000000 \
+            --expected-games 1024 \
             --output "build/accepted/$VARIANT.json"
-      - name: Summarize real deduplicated positions, profiles and provenance
-        if: always()
+      - name: Display verified original source row counts and diversified feature coverage
         run: |
           python3 - <<'PY'
-          import os,json
+          import json,os
           from pathlib import Path
-          v=os.environ['VARIANT']
-          f=Path('build/accepted')/(v+'.json')
-          if f.is_file():
-              data=json.loads(f.read_text())
-              with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
-                  summary.write(f"## {v}: recovered and certified original 12 shards\n\n")
-                  summary.write(f"Native games: {data['games']:,}; original labeled states: "
-                                f"{data['generated_positions']:,}; **unique model inputs: "
-                                f"{data['unique_model_inputs_sha256']:,}**.\n\n")
-                  summary.write(f"Duplicates: {data['duplicate_positions']:,}; "
-                                f"4 profiles: {data['profiles_games']}; "
-                                f"all original source hashes and seeds independently re-verified.\n")
+          path=Path('build/accepted')/(os.environ['VARIANT']+'.json')
+          j=json.loads(path.read_text())
+          assert j['variant']==os.environ['VARIANT']
+          assert j['shards']==12 and j['games']==12288
+          assert j['unique_model_inputs_sha256']>=1000000
+          assert j['unique_target_met']
+          assert len({s['seed'] for s in j['source_shards']})==12
+          assert len(j['profiles_games'])==4
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('### '+os.environ['VARIANT']+' independently source-certified native royal positions\n\n')
+              f.write(f"Native games: {j['games']:,}; labeled rows: {j['generated_positions']:,}; "
+                      f"distinct royal features: **{j['unique_model_inputs_sha256']:,}**; "
+                      f"duplicates: {j['duplicate_positions']:,}.\n\n")
+              f.write(f"Source profiles: {j['profiles_games']}. Unfinished: {j['censored_games']}.\n")
+          print(json.dumps({'variant':j['variant'],'generated':j['generated_positions'],
+                            'unique':j['unique_model_inputs_sha256'],
+                            'audits':12,'seed_source':'SHA256-matched original manifest'}))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: v3-recovered-proof-${{ matrix.variant }}
+          name: recovered-million-proof-${{ matrix.variant }}
           path: build/accepted/${{ matrix.variant }}.json
           retention-days: 90
           if-no-files-found: error
 
-  certify:
-    needs: recover
+  aggregate:
+    needs: verify-original
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: v3-recovered-proof-*
-          path: proofs
+          pattern: recovered-million-proof-*
+          path: build/proof
           merge-multiple: true
-      - name: Verify five independently accepted ≥1M input corpus proofs
+      - name: Certify actual per-game >= 1 million unique native source inputs
         run: |
           python3 - <<'PY'
           import json,os
           from pathlib import Path
-          files=list(Path('proofs').glob('*.json'))
-          variants=('chess','shogi','janggi','xiangqi','makruk')
-          if len(files)!=len(variants):
-              raise SystemExit(f"Missing accepted variants: {len(files)}/5")
-          rows={}
-          for v in variants:
-              p=Path('proofs')/(v+'.json')
-              if not p.exists():raise SystemExit(f"Missing native data proof: {v}")
-              data=json.loads(p.read_text())
-              if (data.get('variant')!=v or data.get('games')!=12288
-                  or data.get('shards')!=12
-                  or data.get('original_generation_run')!=40475358787
-                  or data.get('original_generation_source_sha')!='12063059cdabc355053f6c9373bfe9642858c63c'
-                  or data.get('source_manifests_reverified_from_raw_bytes') is not True
-                  or data.get('unique_model_inputs_sha256',0)<1000000
-                  or data.get('unique_target_met') is not True):
-                  raise SystemExit(f"Uncertified or undersized native game corpus: {v}")
-              rows[v]={'native_games':data['games'],
-                       'generated_positions':data['generated_positions'],
-                       'unique_native_inputs':data['unique_model_inputs_sha256'],
-                       'duplicate_rows':data['duplicate_positions']}
-          total=sum(x['unique_native_inputs'] for x in rows.values())
-          if total<5000000:raise SystemExit(f"Global unique count below 5 million: {total}")
-          report={'schema':3,'experiment':'svnnue3-diverse-20261027',
-                  'original_source_run':40475358787,
-                  'original_source_commit':'12063059cdabc355053f6c9373bfe9642858c63c',
-                  'games_per_variant':12288,'variants':rows,
-                  'total_generated_rows':sum(x['generated_positions'] for x in rows.values()),
-                  'total_native_games':61440,'total_unique_royal_inputs':total,
-                  'all_five_unique_million_targets_met':True,
-                  'strength_validated':False,'elo':None}
-          Path('five-game-certificate.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
-          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
-              summary.write('## Certified 5 × 1 million original royal-perspective inputs\n\n')
-              summary.write('| Variant | Actual rows | Unique SHA256 inputs |\n')
-              summary.write('| --- | ---: | ---: |\n')
-              for v,s in rows.items():
-                  summary.write(f"| {v} | {s['generated_positions']:,} | {s['unique_native_inputs']:,} |\n")
-              summary.write(f"\n**Total distinct game-scoped NNUE inputs: {total:,}.**\n")
-              summary.write('\nDataset certification is not neural-network Elo or training completion.\n')
-          print(json.dumps(report))
+          root=Path('build/proof')
+          names=('chess','shogi','janggi','xiangqi','makruk')
+          files=list(root.glob('*.json'))
+          if len(files)!=5:raise SystemExit(f'Only {len(files)}/5 original native source proofs')
+          results={}
+          total=0
+          for v in names:
+              file=root/(v+'.json')
+              if not file.exists():raise SystemExit(f'Missing verified game: {v}')
+              j=json.loads(file.read_text())
+              if (j['variant']!=v or not j['unique_target_met']
+                  or j['unique_model_inputs_sha256']<1000000
+                  or j['games']!=12288 or len(j['source_shards'])!=12):
+                  raise SystemExit(f'Invalid actual distinct input certificate: {v}')
+              results[v]={'generated':j['generated_positions'],
+                          'unique':j['unique_model_inputs_sha256'],
+                          'games':j['games'],
+                          'duplicates':j['duplicate_positions']}
+              total+=j['unique_model_inputs_sha256']
+          proof={'schema':3,'source_run':40475358787,
+                 'original_source_sha':'12063059cdabc355053f6c9373bfe9642858c63c',
+                 'dataset_version':'svnnue3-native-selfplay-2',
+                 'games_by_variant':results,
+                 'generated_total':sum(j['generated'] for j in results.values()),
+                 'unique_total':total,
+                 'five_variants_individually_over_one_million':total>=5000000,
+                 'audit_repair':'Recovered missing audit-v1 seed from SHA-256 matching original manifests.',
+                 'trained_network':False,'elo':None}
+          if not proof['five_variants_individually_over_one_million']:
+              raise SystemExit('Insufficient actual unique inputs')
+          Path('accepted-five-million.json').write_text(json.dumps(proof,indent=2,sort_keys=True)+'\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## 5-game certified SVNNUE3 native corpus\n\n')
+              f.write('| Game | Actual generated | Unique (SHA-256) | Duplicates |\n|---|---:|---:|---:|\n')
+              for v,j in results.items():
+                  f.write(f"| {v} | {j['generated']:,} | {j['unique']:,} | {j['duplicates']:,} |\n")
+              f.write(f"\n**All games independently exceeded 1 million unique inputs. Total: {total:,}.**\n")
+              f.write('This is a data certificate, not a trained-network or Elo result.\n')
+          print(json.dumps(proof))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: v3-accepted-five-game-certificate
-          path: five-game-certificate.json
+          name: recovered-five-million-certificate
+          path: accepted-five-million.json
           retention-days: 90
           if-no-files-found: error

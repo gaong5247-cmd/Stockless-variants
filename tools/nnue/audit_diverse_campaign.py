@@ -26,10 +26,11 @@ def digest(path):
             h.update(chunk)
     return h.hexdigest()
 
-def verify(root,variant,shards,min_unique,min_profiles=4,expected_games=1024):
+def verify(root,variant,shards,min_unique,min_profiles=4,expected_games=1024,original_root=None):
     if shards<4 or shards%len(PROFILES)!=0:
         raise ValueError('Shard count must be a positive multiple of all four profiles')
     root=Path(root)
+    original_root=Path(original_root) if original_root is not None else None
     directory=[folder for folder in root.iterdir()
                if folder.is_dir() and (folder/"audit.json").is_file()]
     if len(directory)!=shards:
@@ -57,8 +58,41 @@ def verify(root,variant,shards,min_unique,min_profiles=4,expected_games=1024):
             or audit.get("profile") not in PROFILES):
             raise ValueError("Invalid variant/shard/provenance in certified audit")
         seed=audit.get("seed")
+        # The original campaign's audit-v1 JSON omitted the seed field,
+        # although its already-SHA256-bound native manifest recorded it.
+        # Resolve that omission by verifying the ORIGINAL unexpired source
+        # artifact, not by inventing/guessing a seed from the shard number.
+        if original_root is not None:
+            original=original_root/f"v3-diverse-data-{variant}-{i}"
+            manifest_file=original/"manifest.json"
+            if not manifest_file.is_file():
+                raise ValueError(f"Missing original native manifest: {manifest_file}")
+            if digest(manifest_file)!=audit.get("manifest_sha256"):
+                raise ValueError(f"{variant}/{i}: original signed-manifest SHA256 drift")
+            manifest=json.loads(manifest_file.read_text(encoding="utf-8"))
+            if (manifest.get("schema")!=3
+                or manifest.get("variant")!=variant
+                or manifest.get("shard_id")!=i
+                or manifest.get("profile")!=audit["profile"]
+                or manifest.get("games")!=audit["games"]
+                or manifest.get("positions")!=audit["positions"]
+                or manifest.get("descriptor")!=audit["descriptor"]
+                or manifest.get("native_engine_sha256")!=audit["source_engine_sha256"]):
+                raise ValueError(f"{variant}/{i}: original native shard metadata disagree")
+            recorded_seed=manifest.get("seed")
+            if type(recorded_seed) is not int or (seed is not None and seed!=recorded_seed):
+                raise ValueError(f"{variant}/{i}: recorded shard seed mismatch")
+            seed=recorded_seed
+            for name in ("positions.jsonl","games.jsonl","fingerprints.sha256.bin"):
+                source_file=original/name
+                audit_info=audit["files"][name]
+                native_info=manifest["files"][name]
+                if (audit_info!=native_info
+                    or source_file.stat().st_size!=audit_info["bytes"]
+                    or digest(source_file)!=audit_info["sha256"]):
+                    raise ValueError(f"{variant}/{i}: source JSONL or fingerprint checksum mismatch: {name}")
         if type(seed) is not int or seed in seen_seeds:
-            raise ValueError(f"{variant}: duplicate or missing independent shard seed")
+            raise ValueError(f"{variant}: duplicate or missing independently verified shard seed")
         seen_seeds.add(seed)
         if (audit.get("games")!=expected_games or audit.get("positions",0)<expected_games
             or audit.get("completed_games",0)+audit.get("censored_games",0)!=audit.get("games")):
@@ -146,10 +180,13 @@ def main():
     p.add_argument("--shards",type=int,default=12)
     p.add_argument("--min-unique",type=int,default=1000000)
     p.add_argument("--expected-games",type=int,default=1024)
+    p.add_argument("--original-root",type=Path,
+                   help="Original whole source artifact folders, required for recovering audit-v1 missing seeds")
     p.add_argument("--output",type=Path,required=True)
     args=p.parse_args()
     try:
-        result=verify(args.input_root,args.variant,args.shards,args.min_unique,expected_games=args.expected_games)
+        result=verify(args.input_root,args.variant,args.shards,args.min_unique,
+                      expected_games=args.expected_games,original_root=args.original_root)
         args.output.parent.mkdir(parents=True,exist_ok=True)
         args.output.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n")
         print(json.dumps({k:result[k] for k in
