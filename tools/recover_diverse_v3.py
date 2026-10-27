@@ -48,7 +48,12 @@ def run(input_root:Path,variant:str,out:Path,shards=12,min_unique=1000000):
         regenerated=verify(folder,variant,i,PROFILES[i//3],1024)
         if regenerated.get("seed")!=seed:
             raise ValueError("Verified audit seed did not match original manifest")
-        without_seed={k:v for k,v in regenerated.items() if k!="seed"}
+        # Counter() uses integer keys before serialization, whereas the
+        # original audit was uploaded as JSON, which has string map keys.
+        # Normalize BOTH structures to canonical JSON before comparison.
+        without_seed=json.loads(json.dumps(
+            {k:v for k,v in regenerated.items() if k!="seed"},
+            sort_keys=True))
         if previous!=without_seed:
             changed=[k for k in sorted(set(previous)|set(without_seed))
                      if previous.get(k)!=without_seed.get(k)]

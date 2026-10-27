@@ -74,6 +74,8 @@ jobs:
             test -s "$root/fingerprints.sha256.bin"
             sha256sum "$root/manifest.json"
           done
+      - name: Check deterministic original audit recovery script
+        run: python3 -m py_compile tools/recover_diverse_v3.py
       - name: Independently verify the original 12 SHA-bound manifests, game histories and missing seeds
         run: |
           python tools/recover_diverse_v3.py \
