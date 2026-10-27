@@ -47,13 +47,20 @@ jobs:
             exit 1
           fi
           echo "Verified original generation source $ORIGINAL_SOURCE (60/60 successful data jobs)"
-      - uses: actions/download-artifact@v4
-        with:
-          run-id: 40475358787
-          pattern: v3-diverse-data-${{ matrix.variant }}-*
-          github-token: ${{ github.token }}
-          path: build/source
-          merge-multiple: false
+      - name: Download all 12 original shards individually (GitHub has over 100 artifacts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for shard in $(seq 0 11); do
+            destination="build/source/v3-diverse-data-$VARIANT-$shard"
+            mkdir -p "$destination"
+            gh run download "$ORIGINAL_RUN" -R "$GITHUB_REPOSITORY"               --name "v3-diverse-data-$VARIANT-$shard"               --dir "$destination"
+            test -s "$destination/manifest.json" || {
+              echo "::error::Original shard artifact missing: $VARIANT/$shard"
+              exit 1
+            }
+          done
+          echo "All twelve exact original source archives retrieved for $VARIANT"
       - name: Independently verify the original 12 SHA-bound manifests, game histories and missing seeds
         run: |
           python tools/recover_diverse_v3.py \
