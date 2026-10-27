@@ -81,11 +81,13 @@ def run(args):
             process.option("StocklessHybrid",True)
             process.option("Use NNUE",False)
         neural.option("EvalFile",model)
-        neural.option("EvalBackend","StocklessNNUE")
+        neural.option("EvalBackend",args.backend)
         neural.send("nnuestatus")
         active=json.loads(neural.until(lambda line:line.startswith("info string NNUE_STATUS "))[-1]
                           .split("NNUE_STATUS ",1)[1])
-        if (active.get("active") is not True or active.get("model_variant")!=args.variant):
+        if (active.get("active") is not True or active.get("model_variant")!=args.variant
+                or (args.backend=="StocklessNNUEv3" and active.get("format")!=3)):
+
             raise RuntimeError("Model is not active for this variant")
         for pair in range(args.pairs):
             classical.new_game();neural.new_game()
@@ -128,7 +130,8 @@ def run(args):
             margin=z*math.sqrt(p*(1-p)/played+z*z/(4*played*played))/denominator
             interval=[max(0.,center-margin),min(1.,center+margin)]
         summary={"schema":1,"variant":args.variant,"engine_sha256":sha256(engine),
-                 "network_sha256":sha256(model),"depth":args.depth,"pairs":args.pairs,
+                 "network_sha256":sha256(model),"backend":args.backend,
+                 "depth":args.depth,"pairs":args.pairs,
                  "games":len(results),"max_plies":args.max_plies,"seed":args.seed,
                  "wins":wins,"draws":draws,"losses":losses,"censored":censored,
                  "score_completed_only":score,"wilson_style_95pct_interval_completed_only":interval,
@@ -147,6 +150,7 @@ def main():
     p.add_argument("--engine",required=True,type=Path)
     p.add_argument("--model",required=True,type=Path)
     p.add_argument("--variant",choices=("chess","shogi","janggi","xiangqi","makruk"),required=True)
+    p.add_argument("--backend",choices=("StocklessNNUE","StocklessNNUEv3"),default="StocklessNNUE")
     p.add_argument("--pairs",type=int,default=8)
     p.add_argument("--opening-plies",type=int,default=4)
     p.add_argument("--depth",type=int,default=3)

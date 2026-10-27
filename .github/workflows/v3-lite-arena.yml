@@ -1,0 +1,96 @@
+name: SVNNUE3 Lite paired games and equal-depth NPS
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-lite-arena.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  matched:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build same exact pinned engine for Classical and V3
+        run: make build ARCH=x86-64 JOBS=2
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40464638862
+          name: svnnue3-pilot-${{ matrix.variant }}-c20a36bbb9e7484bc7842ab681f468e6742c0a83
+          github-token: ${{ github.token }}
+          path: build/native
+      - name: Require actual trained SVNNUE3 payload and correct native variant
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os,hashlib
+          variant=os.environ['VARIANT']
+          path=Path('build/native/model')/(variant+'.svnnue')
+          manifest=json.loads((path.parent/'network-manifest.json').read_text())
+          assert manifest['schema']==3 and manifest['quantization_passed']
+          assert manifest['descriptor']['variant']==variant
+          assert path.read_bytes()[:8]==b'SVNNUE3\x00'
+          assert hashlib.sha256(path.read_bytes()).hexdigest()==manifest['network_sha256']
+          print("Native v3 model is verified:",variant,manifest['network_sha256'])
+          PY
+      - name: Measure NNUE vs Classical search throughput at same depth
+        run: |
+          python tools/nps_v3.py --engine build/engine/src/stockless-variants \
+            --model "build/native/model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --positions 6 --depth 7 \
+            --output "build/results/nps-$VARIANT.json"
+      - name: Play actual color-swapped Classical/NNUE v3 pairs
+        run: |
+          python tools/nnue/arena.py \
+            --engine build/engine/src/stockless-variants \
+            --model "build/native/model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --backend StocklessNNUEv3 \
+            --pairs 12 --depth 3 --max-plies 240 \
+            --opening-plies 6 --seed 20261027 \
+            --output "build/results/arena-$VARIANT.json"
+      - name: Show raw outcomes and measured NPS (not Elo)
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          v=os.environ['VARIANT']
+          result=Path('build/results')
+          lines=[f"## {v} SVNNUE3 Lite paired pilot"]
+          arena=result/('arena-'+v+'.json')
+          nps=result/('nps-'+v+'.json')
+          if arena.is_file():
+              j=json.loads(arena.read_text())
+              lines.append(f"NNUE W/D/L {j['wins']}/{j['draws']}/{j['losses']}; censored {j['censored']}. No Elo.")
+          if nps.is_file():
+              j=json.loads(nps.read_text())
+              lines.append(f"Classical search NPS {j['classical']['nps']}; SVNNUE3 search NPS {j['nnue_v3']['nps']}.")
+              lines.append("NPS differences include search-tree effects and are not pure evaluation throughput.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as output:
+              output.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v3-lite-match-${{ matrix.variant }}
+          path: build/results/
+          retention-days: 30
+          if-no-files-found: warn
