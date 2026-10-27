@@ -27,6 +27,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned native feature Python dependency
+        run: python -m pip install -r tools/nnue/requirements.txt
       - name: Compile pinned native royal-perspective teacher
         run: make build ARCH=x86-64 JOBS=2
       - name: Four independent teacher/search/opening/trajectory profiles
