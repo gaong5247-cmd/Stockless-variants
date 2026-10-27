@@ -114,8 +114,10 @@ def signed_round(value,divisor):
     return np.sign(x)*((np.abs(x)+divisor//2)//divisor)
 
 def integer_predict(q,white,black,side):
-    w=np.asarray(white,dtype=np.int64)
-    b=np.asarray(black,dtype=np.int64)
+    # Preserve CSR sparsity: converting an entire sparse batch with
+    # np.asarray produces an object scalar and fails integer reference math.
+    w=white.astype(np.int64) if hasattr(white,"tocsr") else np.asarray(white,dtype=np.int64)
+    b=black.astype(np.int64) if hasattr(black,"tocsr") else np.asarray(black,dtype=np.int64)
     ft=q["ft"].astype(np.int64)
     bias=q["bft"].astype(np.int64)
     aw=w@ft+bias
