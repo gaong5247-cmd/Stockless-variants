@@ -333,16 +333,16 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
     // The on-disk matrices are row-major. Accumulate each contiguous row
     // into all output neurons, and skip zero clipped activations entirely.
     std::array<std::int64_t,L1> first{};
-    for(unsigned j=0;j<L1;++j)first[j]=loaded->first_bias[j];
+    for(unsigned j=0;j<L1;++j)first_acc[j]=loaded->first_bias[j];
     for(unsigned i=0;i<act.size();++i) {
         if(!act[i])continue;
         const auto* row=loaded->first.data()+i*L1;
         for(unsigned j=0;j<L1;++j)
-            first[j]+=std::int64_t(act[i])*row[j];
+            first_acc[j]+=std::int64_t(act[i])*row[j];
     }
     std::array<std::int32_t,L1> layer1{};
     for(unsigned j=0;j<L1;++j)
-        layer1[j]=clamp_act(round_div(first[j],QB));
+        layer1[j]=clamp_act(round_div(first_acc[j],QB));
 
     std::array<std::int64_t,L2> second{};
     for(unsigned j=0;j<L2;++j)second[j]=loaded->second_bias[j];
