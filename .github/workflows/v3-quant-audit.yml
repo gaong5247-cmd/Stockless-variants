@@ -1,0 +1,58 @@
+name: Inspect real million-row v3 quantization errors without relaxing gates
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-quant-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  quantify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [chess, xiangqi]
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40502083572
+          name: svnnue3-million-trained-${{ matrix.variant }}-c654a7a53db5cd62113040c8c1d99410583d5311
+          github-token: ${{ github.token }}
+          path: build/evidence
+      - name: Report the actual FP32-to-fixed-point quantization errors
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=list(Path('build/evidence').rglob('metrics.json'))
+          if len(files)!=1:raise SystemExit(f'Expected one metrics.json, got {files}')
+          m=json.loads(files[0].read_text())
+          data={
+            'variant':os.environ['VARIANT'],
+            'epochs':m['epochs_completed'],
+            'best_epoch':m['selected_epoch'],
+            'steps':m['gradient_steps'],
+            'optimizer':m['optimizer'],
+            'validation':m['validation'],
+            'test':m['test'],
+            'quantization':m['quantization'],
+            'quantization_passed':m['quantization_passed']
+          }
+          print(json.dumps(data,sort_keys=True))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write(f"## {os.environ['VARIANT']} million-row v3 quantization\n\n")
+              out.write(f"Steps {data['steps']}; best epoch {data['best_epoch']}; "
+                        f"quantization passed: {data['quantization_passed']}\n\n")
+              out.write(json.dumps(data['quantization'],indent=2)+'\n\n')
+              out.write('Thresholds are not relaxed by this diagnostic.\n')
+          PY
