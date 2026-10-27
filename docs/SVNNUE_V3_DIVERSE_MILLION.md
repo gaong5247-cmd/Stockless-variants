@@ -98,6 +98,57 @@ passed all five game variants on real four-profile examples with whole-game
 heldout partitions and lossless row counts. The same merging path supports
 the full twelve-shard corpora.
 
+## Verified generator and sparse training milestones
+
+Before launching the 60-shard campaign, the following completed checks
+were published:
+
+- [Five-game four-profile real-engine smoke](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40475004484):
+  all five games passed, with native legal alternatives selected from
+  MultiPV, multiple depth distributions and byte/SHA-bound FEN/feature
+  exports. This verifies **the sampling procedure**, not the million target.
+- [Cross-shard on-disk cardinality audit](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40475716492):
+  all five groups of four independent native source shards passed a
+  disk-backed SHA-256 deduplication proof.
+- [Five-game lossless JSONL merge and training index](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40476852017):
+  5/5 verified real native corpora combined and loaded with complete-game
+  train/validation/test separation.
+- [Sparse optimizer and trained native parity](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40478315847):
+  all five models ran a two-epoch smoke training with exact
+  checkpoint/optimizer recovery, 180 successful C++ native
+  integer/search checks in total and zero failures.
+
+### Scalable optimizer
+
+The new --optimizer sparse_ft_adagrad uses a row-sparse AdaGrad update for
+the large input feature transformer, but full Adam on the small 32->16->1
+network tail. Its backward pass calculates gradients for *touched feature
+rows only*, instead of allocating input_dim x 128 gradients on every
+minibatch. Only actual royal-perspective CSR minibatches enter memory.
+Whole-optimizer state, the dataset signature, optimizer mode, batch size,
+seed and epoch/steps are checksummed; trying to resume an old dense-Adam
+checkpoint with the new optimizer is explicitly rejected.
+
+This is a different optimizer from the former pure Adam reference.
+Sparse transformer rows do **not** receive stale momentum updates on
+batches in which they do not appear. The old dense optimizer remains
+supported and unaffected; tests compare the sparse gradient against a
+fully materialized FP32 reference and require deterministic restarts.
+
+The separate [large native training workflow](../.github/workflows/train-v3-million.yml)
+can fit each independently certified 1M+ corpus, checkpoint after the
+first epoch, resume with optimizer state, quantize and verify actual
+C++ integer evaluation on heldout positions. Its launch requires the
+*original full source campaign* and exact SHA to have succeeded, so
+it is not a statement that all five million-row models have already
+been trained.
+
+An independent [data release archiver](../.github/workflows/archive-v3-diverse.yml)
+can publish the 60 verified source shard ZIPs as five game-specific
+research pre-releases after source certification. This is separate
+from the latest engine binary Release and keeps full original move
+histories and training labels, not just NNUE weights.
+
 ## Data availability and follow-on training
 
 Each of the 60 full shard artifacts contains complete histories, feature
