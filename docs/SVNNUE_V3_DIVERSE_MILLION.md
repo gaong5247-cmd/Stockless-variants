@@ -44,6 +44,41 @@ preserves the original shard ZIPs separately from engine binaries. Training
 and releases have their own acceptance gates; this data certificate alone
 does not claim that either has finished.
 
+## Verified final measurements — 2026-10-27
+
+The original native generator's [60 independent generation jobs](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40475358787) **all succeeded**. Its initial aggregate failed *only* because audit version 1 had omitted the seed field and the artifact downloader selected only the first 100 of 121 artifacts.
+
+A separate [fully successful 6-job recovery and acceptance workflow](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40505070066) retrieved **all 120 original source and audit artifacts by exact name**, checked the original full games and per-position file hashes against the immutable generation manifests, recovered each shard seed strictly from its SHA-256-bound original manifest and used SQLite to deduplicate each game's complete native [side,white-perspective,black-perspective] inputs.
+
+| Native game | Actual generated positions | SHA-256-distinct royal inputs | Real game histories |
+|---|---:|---:|---:|
+| Chess | 1,414,820 | **1,384,403** | 12,288 |
+| Shogi | 1,495,557 | **1,488,624** | 12,288 |
+| Janggi | 1,520,135 | **1,497,338** | 12,288 |
+| Xiangqi | 1,550,649 | **1,520,092** | 12,288 |
+| Makruk | 2,172,148 | **2,107,658** | 12,288 |
+| **Total** | **8,153,309** | **7,998,115** | **61,440** |
+
+All five game-level one-million distinct-source targets passed with true verified data, rather than simply counting the requested target. The game-specific hashes represent the same source feature semantics per variant, not a claim of one universal model.
+
+### Separate checksum-preserved original data releases
+
+[Research archive publishing completed successfully](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40505469623). Each separate release contains 12 original legal-game + NNUE feature ZIPs, an independent original-source certificate, a corpus manifest and SHA256SUMS.
+
+- [Chess original data](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/svnnue3-diverse-chess-1m-20261027)
+- [Shogi original data](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/svnnue3-diverse-shogi-1m-20261027)
+- [Janggi original data](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/svnnue3-diverse-janggi-1m-20261027)
+- [Xiangqi original data](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/svnnue3-diverse-xiangqi-1m-20261027)
+- [Makruk original data](https://github.com/gaong5247-cmd/Stockless-variants/releases/tag/svnnue3-diverse-makruk-1m-20261027)
+
+These are immutable-source *experimental data* research pre-releases, not trained v3 NNUE networks, and do not affect the stable original Stockless engine, Stockless Variants main branch or its latest binary release.
+
+### Subsequent neural training: separate success criteria
+
+[Five-model actual million-input training workflow](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40505711978) separately loads and re-verifies all twelve source shards, merges the immutable JSONL in bounded memory, builds a whole-game-split SQLite corpus and trains each SVNNUE3 Lite network. This uses the experimental touched-row sparse Feature Transformer AdaGrad updater and Adam for the small nonlinear network tail. It resumes full optimizer state at two epochs and finishes six total epochs, with a frozen native C++ heldout-int/search gate after training.
+
+**A completed data campaign is not a trained network, a playing-strength gain, or an Elo result.** Track the model workflow independently.
+
 ## Input sources and diversity
 
 One fixed, pinned and SHA-256-recorded native C++ engine generates all
