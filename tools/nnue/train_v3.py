@@ -179,10 +179,12 @@ def optimizer_step(state,white,black,side,target,epoch):
         w[key]-=RATES[key]*schedule*corrected/denominator
         np.clip(w[key],-BOUNDS[key],BOUNDS[key],out=w[key])
 
-def final(out,state,summary,db,batch,seed):
+def final(out,state,summary,db,batch,seed,quant_qa=256):
     if state["best_epoch"]==0:raise ValueError("No validation-selected v3 weights")
     best=state["best"]
-    d=summary["descriptor"]
+    # Network precision lives in the on-disk header. The original native
+    # royal-feature schema and training split remain completely unchanged.
+    d=dict(summary["descriptor"],qa=quant_qa)
     quant=quantize(best,d)
     model=out/(d["variant"]+".svnnue")
     write_network(model,d,quant)
@@ -198,6 +200,7 @@ def final(out,state,summary,db,batch,seed):
         np.savez_compressed(handle,**best)
     report={"schema":3,"trainer":version_for(state["optimizer"]),
             "optimizer":state["optimizer"],"descriptor":d,
+            "quant_precision_qa":quant_qa,"feature_schema_qa":summary["descriptor"]["qa"],
             "dataset_signature":summary["signature"],
             "seed":seed,"epochs_completed":state["epoch"],"gradient_steps":state["steps"],
             "selected_epoch":state["best_epoch"],"history":state["history"],
@@ -229,6 +232,7 @@ def main():
     p.add_argument("--seed",type=int,default=20261027)
     p.add_argument("--resume",action="store_true")
     p.add_argument("--optimizer",choices=OPTIMIZERS,default="dense_adam")
+    p.add_argument("--quant-qa",type=int,choices=(256,512,1024,2048,4096),default=256)
     a=p.parse_args()
     if not (1<=a.epochs<=1000 and 0<=a.stop_after_epoch<=a.epochs and
             8<=a.batch_size<=512 and 0<=a.seed<2**32):
@@ -264,7 +268,7 @@ def main():
                               "validation_mae_cp":round(validation["mae_cp"],3),
                               "best_epoch":state["best_epoch"]}),flush=True)
         if until==a.epochs:
-            print(json.dumps(final(a.output,state,summary,db,a.batch_size,a.seed)),flush=True)
+            print(json.dumps(final(a.output,state,summary,db,a.batch_size,a.seed,a.quant_qa)),flush=True)
         else:
             print(json.dumps({"checkpoint_only":True,"epoch":state["epoch"],
                               "source_rows":summary["input_rows"]}),flush=True)

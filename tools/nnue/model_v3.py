@@ -18,6 +18,7 @@ L2=16
 BUCKETS=16
 QA=256
 QB=128
+SUPPORTED_QA=(256,512,1024,2048,4096)
 MAX_FILE_BYTES=32*1024*1024
 ALLOWED=("chess","shogi","janggi","xiangqi","makruk")
 
@@ -44,8 +45,10 @@ def validate_descriptor(d):
         types!=sorted(set(types)) or any(type(t) is not int or not 1<=t<=63 for t in types)):
         raise ValueError("Invalid board geometry or native piece types")
     dim=BUCKETS*2*len(types)*(w*h+1)
+    if type(d.get("qa")) is not int or d["qa"] not in SUPPORTED_QA:
+        raise ValueError("Unsupported quantization QA; expected one of "+str(SUPPORTED_QA))
     required={"input_dim":dim,"hidden_dim":HIDDEN,"l1_dim":L1,"l2_dim":L2,
-              "qa":QA,"qb":QB,"king_buckets":BUCKETS,
+              "qb":QB,"king_buckets":BUCKETS,
               "black_rotation":d["variant"]=="shogi"}
     for key,value in required.items():
         if d.get(key)!=value:raise ValueError(f"Wrong {key} in v3 descriptor")
@@ -92,8 +95,11 @@ def float_predict(w,white,black,side):
 
 def quantize(w,d):
     expected=shapes(d)
-    result={}
-    for key,_,dtype,scale in SHAPES:
+    qa,qb=d["qa"],d["qb"]
+    result={"__qa__":qa,"__qb__":qb}
+    for key,_,dtype,_scale in SHAPES:
+        scale=(qa if key in ("ft","bft") else
+               qb if key in ("w1","w2","w3") else qa*qb)
         a=np.asarray(w[key],dtype=np.float64)
         if a.shape!=expected[key] or not np.isfinite(a).all():
             raise ValueError(f"Invalid fp32 tensor {key}")
@@ -118,23 +124,29 @@ def integer_predict(q,white,black,side):
     # np.asarray produces an object scalar and fails integer reference math.
     w=white.astype(np.int64) if hasattr(white,"tocsr") else np.asarray(white,dtype=np.int64)
     b=black.astype(np.int64) if hasattr(black,"tocsr") else np.asarray(black,dtype=np.int64)
+    qa=int(q.get("__qa__",QA))
+    qb=int(q.get("__qb__",QB))
+    if qa not in SUPPORTED_QA or qb!=QB:
+        raise ValueError("Unsupported native NNUE3 model precision")
     ft=q["ft"].astype(np.int64)
     bias=q["bft"].astype(np.int64)
     aw=w@ft+bias
     ab=b@ft+bias
     if max(np.max(np.abs(aw),initial=0),np.max(np.abs(ab),initial=0)) >= (1<<31):
         raise ValueError("Transformer overflow")
-    aa=np.clip(aw,0,QA)
-    bb=np.clip(ab,0,QA)
+    aa=np.clip(aw,0,qa)
+    bb=np.clip(ab,0,qa)
     stack=np.concatenate([np.where(side[:,None]==0,aa,bb),
                           np.where(side[:,None]==0,bb,aa)],axis=1)
-    h1=np.clip(signed_round(stack@q["w1"].astype(np.int64)+q["b1"].astype(np.int64),QB),0,QA)
-    h2=np.clip(signed_round(h1@q["w2"].astype(np.int64)+q["b2"].astype(np.int64),QB),0,QA)
-    scores=signed_round(h2@q["w3"].astype(np.int64)+q["b3"].astype(np.int64)[0],QA*QB)
+    h1=np.clip(signed_round(stack@q["w1"].astype(np.int64)+q["b1"].astype(np.int64),qb),0,qa)
+    h2=np.clip(signed_round(h1@q["w2"].astype(np.int64)+q["b2"].astype(np.int64),qb),0,qa)
+    scores=signed_round(h2@q["w3"].astype(np.int64)+q["b3"].astype(np.int64)[0],qa*qb)
     return np.clip(scores,-10000,10000).astype(np.int64)
 
 def write_network(path,d,q):
     dim=validate_descriptor(d)
+    if int(q.get("__qa__",d["qa"]))!=d["qa"] or int(q.get("__qb__",d["qb"]))!=d["qb"]:
+        raise ValueError("Quantized model precision disagrees with network descriptor")
     payload=bytearray()
     for key,_,dtype,_ in SHAPES:
         val=np.asarray(q[key],dtype=dtype)
@@ -145,7 +157,7 @@ def write_network(path,d,q):
     head=bytearray(HEADER_BYTES)
     head[:8]=MAGIC
     struct.pack_into("<10I",head,8,3,3,HIDDEN,dim,d["width"],d["height"],
-                     len(d["type_ids"]),QA,QB,len(payload))
+                     len(d["type_ids"]),d["qa"],d["qb"],len(payload))
     name=d["variant"].encode("ascii")
     head[48:48+len(name)]=name
     head[80:112]=bytes.fromhex(d["rules_sha256"])
@@ -162,7 +174,7 @@ def read_network(path,d):
     if not HEADER_BYTES<=len(data)<=MAX_FILE_BYTES or data[:8]!=MAGIC:
         raise ValueError("SVNNUE3 magic or bounds mismatch")
     expected=(3,3,HIDDEN,dim,d["width"],d["height"],len(d["type_ids"]),
-              QA,QB,len(data)-HEADER_BYTES)
+              d["qa"],d["qb"],len(data)-HEADER_BYTES)
     if struct.unpack_from("<10I",data,8)!=expected:
         raise ValueError("Network v3 geometry, dimensions or version mismatch")
     name=d["variant"].encode("ascii")
@@ -174,7 +186,7 @@ def read_network(path,d):
     if hashlib.sha256(payload).digest()!=data[112:144]:
         raise ValueError("Network payload SHA256 mismatch")
     off=0
-    result={}
+    result={"__qa__":d["qa"],"__qb__":d["qb"]}
     for key,shape,dtype,_ in SHAPES:
         actual=(dim,HIDDEN) if key=="ft" else shape
         count=int(np.prod(actual))

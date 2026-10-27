@@ -55,6 +55,8 @@ struct Model {
     std::array<std::int32_t, L2> second_bias{};
     std::array<std::int16_t, L2> output{};
     std::int32_t output_bias=0;
+    // Precision is explicitly bound to the network header, not guessed.
+    std::uint32_t qa=QA, qb=QB;
     std::string name;
 };
 
@@ -316,7 +318,7 @@ bool ensure(const Position& pos) {
 }
 
 std::int32_t clamp_act(std::int64_t value) {
-    return std::int32_t(std::clamp<std::int64_t>(value,0,QA));
+    return std::int32_t(std::clamp<std::int64_t>(value,0,loaded->qa));
 }
 std::int64_t round_div(std::int64_t value,std::int64_t divisor) {
     return value>=0 ? (value+divisor/2)/divisor
@@ -342,7 +344,7 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
     }
     std::array<std::int32_t,L1> layer1{};
     for(unsigned j=0;j<L1;++j)
-        layer1[j]=clamp_act(round_div(first_acc[j],QB));
+        layer1[j]=clamp_act(round_div(first_acc[j],loaded->qb));
 
     std::array<std::int64_t,L2> second{};
     for(unsigned j=0;j<L2;++j)second[j]=loaded->second_bias[j];
@@ -354,12 +356,12 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
     }
     std::array<std::int32_t,L2> layer2{};
     for(unsigned j=0;j<L2;++j)
-        layer2[j]=clamp_act(round_div(second[j],QB));
+        layer2[j]=clamp_act(round_div(second[j],loaded->qb));
 
     std::int64_t total=loaded->output_bias;
     for(unsigned k=0;k<L2;++k)
         total+=std::int64_t(layer2[k])*loaded->output[k];
-    return std::int32_t(std::clamp(round_div(total,QA*QB),
+    return std::int32_t(std::clamp(round_div(total,std::int64_t(loaded->qa)*loaded->qb),
                          std::int64_t(-10000),std::int64_t(10000)));
 }
 
@@ -473,10 +475,19 @@ bool load(const std::string& path,const Variant* variant,std::string& error) {
         {error="truncated SVNNUE3 file";return false;}
     if(!std::equal(std::begin(Magic),std::end(Magic),data.begin()))
         {error="not an SVNNUE3 network";return false;}
+    const std::uint32_t actual_qa=load_u32(data.data()+8+4*7);
+    const std::uint32_t actual_qb=load_u32(data.data()+8+4*8);
+    // This is a constrained architecture parameter, not an arbitrary value.
+    // Existing QA=256 networks retain byte-for-byte inference semantics.
+    if ((actual_qa!=256 && actual_qa!=512 && actual_qa!=1024
+          && actual_qa!=2048 && actual_qa!=4096) || actual_qb!=QB) {
+        error="unsupported native v3 quantization precision";
+        return false;
+    }
     const std::uint32_t wanted[]={
         FormatVersion,FeatureVersion,Hidden,d.dimensions,
         std::uint32_t(d.width),std::uint32_t(d.height),std::uint32_t(d.types.size()),
-        QA,QB,std::uint32_t(expected_payload(d))
+        actual_qa,actual_qb,std::uint32_t(expected_payload(d))
     };
     for(unsigned i=0;i<10;++i)
         if(load_u32(data.data()+8+4*i)!=wanted[i])
@@ -501,6 +512,8 @@ bool load(const std::string& path,const Variant* variant,std::string& error) {
     candidate->variant=variant;
     candidate->descriptor=d;
     candidate->name=path;
+    candidate->qa=actual_qa;
+    candidate->qb=actual_qb;
     candidate->transformer.resize(std::size_t(d.dimensions)*Hidden);
     std::size_t offset=HeaderSize;
     const auto read_short=[&](){const auto x=load_i16(data.data()+offset);offset+=2;return x;};
@@ -546,6 +559,8 @@ std::string status_json(const Variant* variant) {
        <<",\"model_variant\":"<<quote(loaded?loaded->descriptor.name:"")
        <<",\"input_dim\":"<<(loaded?loaded->descriptor.dimensions:0)
        <<",\"hidden_dim\":"<<Hidden
+       <<",\"model_qa\":"<<(loaded?loaded->qa:0)
+       <<",\"model_qb\":"<<(loaded?loaded->qb:0)
 #if defined(USE_AVX2)
        <<",\"accumulator_implementation\":\"avx2\""
 #else

@@ -32,15 +32,18 @@ def main():
     summary=json.loads((modeldir/"index-summary.json").read_text())
     manifest=json.loads((modeldir/"network-manifest.json").read_text())
     metrics=json.loads((modeldir/"metrics.json").read_text())
+    net_desc=manifest["descriptor"]
+    native_desc=summary["descriptor"]
+    compatible={key:value for key,value in net_desc.items() if key!="qa"}=={
+        key:value for key,value in native_desc.items() if key!="qa"}
     if (manifest["dataset_signature"]!=summary["signature"]
         or metrics["dataset_signature"]!=summary["signature"]
-        or manifest["descriptor"]!=summary["descriptor"]
-        or not manifest["quantization_passed"]):
+        or not compatible or not manifest["quantization_passed"]):
         raise ValueError("Trained v3 model and source index mismatch")
     network=modeldir/manifest["network"]
     if digest(network)!=manifest["network_sha256"]:
         raise ValueError("Trained v3 payload checksum mismatch")
-    q=read_network(network,summary["descriptor"])
+    q=read_network(network,net_desc)
     rows=[]
     games={}
     with open_db(modeldir/"index.sqlite3") as db:
@@ -72,7 +75,9 @@ def main():
         engine.option("EvalFile",network.resolve())
         engine.option("EvalBackend","StocklessNNUEv3")
         status=json_reply(engine,"nnuestatus","info string NNUE_STATUS ")
-        if not status.get("active") or status.get("format")!=3:
+        if (not status.get("active") or status.get("format")!=3
+            or status.get("model_qa")!=net_desc["qa"]
+            or status.get("model_qb")!=net_desc["qb"]):
             raise AssertionError("SVNNUE3 was not actually enabled")
         for i,row in enumerate(rows):
             game_id=row[5]

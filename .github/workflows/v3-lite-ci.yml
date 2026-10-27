@@ -39,6 +39,8 @@ jobs:
           cache-dependency-path: tools/nnue/requirements.txt
       - name: Install pinned sparse numerical backend
         run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Verify precision-profile identity and integer Python reference
+        run: python tests/v3_precision_test.py
       - name: Compile actual C++ SVNNUE3 Lite variant engine
         run: make build ARCH=x86-64 JOBS=2
       - name: Generate actual native royal-perspective self-play data
@@ -55,7 +57,7 @@ jobs:
             --epochs 8 --stop-after-epoch 3 --batch-size 64 --seed 20261027
           python tools/nnue/train_v3.py \
             --data "build/v3/$VARIANT/data" --output "build/v3/$VARIANT/model" \
-            --epochs 8 --batch-size 64 --seed 20261027 --resume
+            --epochs 8 --batch-size 64 --seed 20261027 --resume --quant-qa 2048
       - name: Verify real native two-perspective inference, accumulation and legal search
         run: |
           python tools/nnue/validate_v3.py \
