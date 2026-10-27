@@ -332,7 +332,7 @@ std::int32_t stm_centipawns(const Position& pos,const Accumulator& state) {
 
     // The on-disk matrices are row-major. Accumulate each contiguous row
     // into all output neurons, and skip zero clipped activations entirely.
-    std::array<std::int64_t,L1> first{};
+    std::array<std::int64_t,L1> first_acc{};
     for(unsigned j=0;j<L1;++j)first_acc[j]=loaded->first_bias[j];
     for(unsigned i=0;i<act.size();++i) {
         if(!act[i])continue;
