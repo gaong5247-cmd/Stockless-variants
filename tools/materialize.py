@@ -128,6 +128,8 @@ def materialize(out: Path) -> dict:
     patch_nnue(out)
     from patch_training import apply as patch_training
     patch_training(out)
+    from patch_fsf_nnue import apply as patch_fsf_nnue
+    patch_fsf_nnue(out)
 
     # Conservative rule/layout identity for separately trained networks. Normalize
     # line endings so the same pinned source accepts the same model on Windows,
@@ -164,7 +166,11 @@ def materialize(out: Path) -> dict:
                 "all_variants": True, "status": "experimental", "modified_upstream_files": modified,
                 "nnue": {"format": "SVNNUE-v1", "rules_sha256": rules_sha256,
                          "variants": ["chess", "shogi", "janggi", "xiangqi", "makruk"],
-                         "default_enabled": False}}
+                         "default_enabled": False},
+                "fsf_nnue": {"format": "upstream-native-NNUE",
+                             "catalog": "config/fsf-networks.json",
+                             "default_enabled_if_bundle_detected": True,
+                             "bundled_in_release": True}}
     manifest["source_files"] = {
         p.relative_to(out).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted((out / "src").rglob("*")) if p.is_file()
