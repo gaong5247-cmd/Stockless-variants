@@ -1,6 +1,9 @@
 name: Train v3 Lite on certified 1M distinct native inputs per game
 
 on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths: ['.github/workflows/train-v3-million.yml']
   workflow_dispatch:
     inputs:
       epochs:
@@ -38,8 +41,10 @@ jobs:
       MKL_NUM_THREADS: '1'
       SOURCE_RUN: '40475358787'
       SOURCE_SHA: '12063059cdabc355053f6c9373bfe9642858c63c'
-      EPOCHS: ${{ inputs.epochs }}
-      BATCH_SIZE: ${{ inputs.batch_size }}
+      RECOVERY_RUN: '40501421340'
+      RECOVERY_SHA: '084f3a27d9e23407758391feca09d9a0bf59a34c'
+      EPOCHS: ${{ inputs.epochs || 2 }}
+      BATCH_SIZE: ${{ inputs.batch_size || 256 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,14 +54,18 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: tools/nnue/requirements.txt
-      - name: Require an actually successful native 5-variant million-position source run
+      - name: Require independently certified five-game million-input recovery
         run: |
           set -euo pipefail
-          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN"
-          result=$(gh api "$endpoint" --jq .conclusion)
-          revision=$(gh api "$endpoint" --jq .head_sha)
-          if [ "$result" != success ] || [ "$revision" != "$SOURCE_SHA" ]; then
-            echo "::error::Original 61,440-game source did not complete successfully"; exit 1
+          root="repos/$GITHUB_REPOSITORY/actions/runs"
+          [ "$(gh api "$root/$RECOVERY_RUN" --jq .head_sha)" = "$RECOVERY_SHA" ]
+          [ "$(gh api "$root/$RECOVERY_RUN" --jq .conclusion)" = success ]
+          [ "$(gh api "$root/$SOURCE_RUN" --jq .head_sha)" = "$SOURCE_SHA" ]
+          completed=$(gh api "$root/$SOURCE_RUN/jobs?per_page=100" --jq \
+            '[.jobs[] | select((.name | startswith("generate (")) and .conclusion=="success")] | length')
+          if [ "$completed" != 60 ]; then
+            echo "::error::Not all 60 source data jobs completed successfully"
+            exit 1
           fi
       - name: Verify bounded experiment
         run: |
@@ -72,22 +81,28 @@ jobs:
         run: python -m pip install -r tools/nnue/requirements.txt
       - uses: actions/download-artifact@v4
         with:
-          run-id: 40475358787
-          name: v3-diverse-accepted-${{ matrix.variant }}
+          run-id: 40501421340
+          name: v3-recovered-proof-${{ matrix.variant }}
           github-token: ${{ github.token }}
           path: build/accepted
-      - uses: actions/download-artifact@v4
-        with:
-          run-id: 40475358787
-          pattern: v3-diverse-data-${{ matrix.variant }}-*
-          github-token: ${{ github.token }}
-          path: build/source-shards
-          merge-multiple: false
-      - name: Independently recheck source SHA, teacher identity and >=1M unique native inputs
+      - name: Download all twelve exact original source artifacts, avoiding truncated listings
         run: |
-          python tools/nnue/audit_diverse_campaign.py \
-            --input-root build/source-shards --variant "$VARIANT" \
-            --shards 12 --min-unique 1000000 \
+          set -euo pipefail
+          for shard in $(seq 0 11); do
+            destination="build/source-shards/v3-diverse-data-$VARIANT-$shard"
+            mkdir -p "$destination"
+            gh run download "$SOURCE_RUN" -R "$GITHUB_REPOSITORY" \
+              --name "v3-diverse-data-$VARIANT-$shard" --dir "$destination"
+            [ -s "$destination/manifest.json" ] || {
+              echo "::error::Missing original source shard $shard"
+              exit 1
+            }
+          done
+      - name: Rehash original games and SHA256 native feature inputs against certified proof
+        run: |
+          python tools/recover_diverse_v3.py \
+            --source build/source-shards --variant "$VARIANT" \
+            --unique-goal 1000000 \
             --output "build/independent-proof/$VARIANT.json"
           python3 - <<'PY'
           from pathlib import Path
