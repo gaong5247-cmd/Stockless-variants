@@ -1,0 +1,44 @@
+name: SVNNUE-v3 Lite native build and feature smoke
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - 'src/stockless_variants/**'
+      - 'tools/nnue/**'
+      - 'tools/patch_nnue.py'
+      - 'tools/patch_training.py'
+      - '.github/workflows/v3-lite-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU dependencies
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Compile real native C++ v3 evaluation backend
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Native king-perspective feature extraction smoke
+        run: |
+          python tools/nnue/generate_v3.py \
+            --engine build/engine/src/stockless-variants --variant chess \
+            --games 8 --max-plies 48 --depth 2 --opening-plies 6 \
+            --output build/v3-smoke/data
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v3-initial-native-smoke
+          path: build/v3-smoke/data/
+          retention-days: 7
+          if-no-files-found: warn

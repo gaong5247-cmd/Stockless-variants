@@ -10,6 +10,7 @@
 #include "../position.h"
 #include "../uci.h"
 #include "nnue.h"
+#include "v3.h"
 
 namespace Stockfish::Stockless {
 
@@ -122,6 +123,16 @@ inline std::string training_features_json(const Position& pos, bool v2 = false) 
         << ",\"black\":" << (has_insufficient_material(BLACK, pos) ? "true" : "false")
         << ",\"adjudicated\":false}}";
     return out.str();
+}
+
+// Reuse native legal moves, FEN and result adjudication from the v1
+// root exporter; only append the independent, bit-exact royal features.
+inline std::string training_features_v3_json(const Position& pos) {
+    auto base = training_features_json(pos, false);
+    if (base.empty() || base.back() != '}' || base.find("\"error\"") != std::string::npos)
+        return "{\"schema\":3,\"error\":\"v3 base export unavailable\"}";
+    base.pop_back();
+    return base + ",\"v3\":" + Neural::V3::native_features_json(pos) + '}';
 }
 
 } // namespace Stockfish::Stockless

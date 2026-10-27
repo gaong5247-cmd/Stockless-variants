@@ -1,6 +1,7 @@
 // Stockless Variants contributors, 2026. SPDX-License-Identifier: AGPL-3.0-only
 // Independent, bounded, quantized SVNNUE-v1 inference and transactional loader.
 #include "nnue.h"
+#include "v3.h"
 #include "nnue_rules.h"
 
 #include <algorithm>
@@ -29,7 +30,7 @@ constexpr std::int32_t MaximumBias = 1 << 20;
 constexpr std::uint8_t Magic[8] = {'S', 'V', 'N', 'N', 'U', 'E', '1', 0};
 constexpr std::uint8_t MagicV2[8] = {'S', 'V', 'N', 'N', 'U', 'E', '2', 0};
 
-enum class Backend { Classical, Auto, Neural };
+enum class Backend { Classical, Auto, Neural, V3 };
 
 struct Descriptor {
     std::string name;
@@ -56,6 +57,7 @@ struct Model {
 std::unique_ptr<Model> model;
 Backend selected_backend = Backend::Classical;
 std::uint64_t network_generation = 1;
+bool last_file_is_v3 = false;
 
 static_assert(std::is_trivially_copyable<Accumulator>::value, "Position requires a POD accumulator");
 
@@ -241,7 +243,7 @@ bool compatible_position(const Position& pos) {
 }
 
 bool enabled() {
-    return selected_backend != Backend::Classical && bool(model);
+    return (selected_backend == Backend::Neural || selected_backend == Backend::Auto) && bool(model);
 }
 
 int feature_index(const Descriptor& descriptor, Piece pc, int slot) {
@@ -516,6 +518,17 @@ std::vector<std::pair<std::uint32_t, std::int32_t>> sparse_features(const Positi
 
 bool load_network(const std::string& path, const Variant* variant, std::string& error) {
     error.clear();
+    {
+        std::ifstream candidate(path, std::ios::binary);
+        std::array<char,8> first{};
+        if (candidate.read(first.data(), std::streamsize(first.size()))
+            && std::string(first.data(),7)=="SVNNUE3") {
+            if (!V3::load(path,variant,error))
+                return false;
+            last_file_is_v3=true;
+            return true;
+        }
+    }
     auto descriptor = describe(variant);
     if (descriptor.name.empty()) {
         error = "SVNNUE-v1/v2 does not support this variant";
@@ -608,6 +621,7 @@ bool load_network(const std::string& path, const Variant* variant, std::string& 
         offset += 4;
     }
     model = std::move(candidate);
+    last_file_is_v3=false;
     advance_generation();
     return true;
 }
@@ -623,6 +637,12 @@ bool select_backend(const std::string& name, const Variant* variant, std::string
             return false;
         }
         next = Backend::Neural;
+    } else if (name == "StocklessNNUEv3") {
+        if (!V3::compatible(variant)) {
+            error = "StocklessNNUEv3 requires a verified compatible SVNNUE3 EvalFile";
+            return false;
+        }
+        next = Backend::V3;
     } else {
         error = "unsupported evaluation backend";
         return false;
@@ -631,25 +651,32 @@ bool select_backend(const std::string& name, const Variant* variant, std::string
         selected_backend = next;
         advance_generation();
     }
+    V3::activate(next == Backend::V3);
     return true;
 }
 
 void variant_changed(const Variant* variant) {
-    if (selected_backend == Backend::Neural && !compatible_variant(variant))
+    if ((selected_backend == Backend::Neural && !compatible_variant(variant))
+        || (selected_backend == Backend::V3 && !V3::compatible(variant)))
         selected_backend = Backend::Classical;
+    V3::activate(selected_backend == Backend::V3);
+    V3::invalidate();
     advance_generation();
 }
 
 const char* backend_name() {
     return selected_backend == Backend::Classical ? "Classical"
-         : selected_backend == Backend::Auto ? "Auto" : "StocklessNNUE";
+         : selected_backend == Backend::Auto ? "Auto"
+         : selected_backend == Backend::V3 ? "StocklessNNUEv3" : "StocklessNNUE";
 }
 
 std::string loaded_file() {
-    return model ? model->file : "<empty>";
+    return last_file_is_v3 ? V3::file() : model ? model->file : "<empty>";
 }
 
 std::string status_json(const Variant* variant) {
+    if (selected_backend == Backend::V3)
+        return V3::status_json(variant);
     std::ostringstream stream;
     stream << "{\"backend\":" << quote(backend_name())
            << ",\"loaded\":" << (model ? "true" : "false")
@@ -709,6 +736,8 @@ Probe probe(const Position& pos, bool compare_refresh) {
 }
 
 std::string evaluation_json(const Position& pos) {
+    if (selected_backend == Backend::V3)
+        return V3::evaluation_json(pos);
     const auto result = probe(pos);
     std::ostringstream stream;
     stream << "{\"backend\":" << quote(backend_name())
