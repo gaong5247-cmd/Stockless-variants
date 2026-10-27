@@ -86,6 +86,42 @@ both independently compiled backends, enforces complete sample coverage and
 records actual nodes/time. Its results supersede the noisy short NPS
 measurements when verified; until then the numbers above are preliminary.
 
+## Longer 20-position / depth-9 ISA benchmark
+
+The [completed run 40470965920](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40470965920)
+recompiled **scalar x86-64 and x86-64-avx2 independently** at exact source
+commit 0414c5db8d8b4075c403f66862a9a649f9308204. The native v3 source,
+rule/schema fingerprint and trained network payload for each game were
+unchanged from the parity run. Each variant used **20 exact matched opening
+sequences at depth 9**, matching network SHA, full search coverage and
+Nodes / Wall-clock Time = NPS. All five workflow jobs passed.
+
+| Variant | Scalar v3 search NPS | AVX2 v3 search NPS | AVX2 / scalar | Classical AVX2 search NPS | V3 / Classical (both AVX2) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Chess | 240,814 | 442,504 | **1.84x** | 483,022 | 91.6% |
+| Shogi | 180,933 | 328,225 | **1.81x** | 350,147 | 93.7% |
+| Janggi | 239,884 | 359,642 | **1.50x** | 335,115 | 107.3% |
+| Xiangqi | 186,861 | 317,030 | **1.70x** | 312,094 | 101.6% |
+| Makruk | 187,304 | 396,612 | **2.12x** | 511,727 | 77.5% |
+
+The **AVX2 V3 build is faster than the scalar V3 build in all five games**
+in this more substantial sample. Some AVX2 V3 search-NPS figures are near or
+slightly above Classical, but this is still **not evidence of better moves or
+an Elo increase**. Fixed search depth gives different trees for different
+evaluators, and the benchmark is not an isolated evaluator throughput
+microbenchmark. Sample count 20 is still too small for platform-wide
+performance guarantees. Whole engine compiler flags change, not just the
+NNUE transform. Repeated benchmarks, node-matched evaluation throughput and
+larger equal-time paired tournaments are further gates.
+
+Verified benchmark JSON archives:
+
+- [Chess depth-9](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40470965920/artifacts/12718264271)
+- [Shogi depth-9](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40470965920/artifacts/12719025248)
+- [Janggi depth-9](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40470965920/artifacts/12718900166)
+- [Xiangqi depth-9](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40470965920/artifacts/12718656769)
+- [Makruk depth-9](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40470965920/artifacts/12718443409)
+
 ### Next acceptance gates
 
 Train on a large *actual v3-oriented native corpus*, not relabeled v1/v2
