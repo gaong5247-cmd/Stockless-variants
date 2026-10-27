@@ -1,4 +1,4 @@
-name: Publish Stockless Variants engine archives as latest release
+name: Publish verified FSF NNUE engine bundles as latest release
 
 on:
   push:
@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RUN_ID=40303979772
-          EXPECTED_SHA=8aa329e240d2761f9a7ae9454a846be84388b016
+          RUN_ID=40599222547
+          EXPECTED_SHA=b9bad5fa66cae38b7d557395ec1f21741929ddf2
 
           actual_sha=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.head_sha')
           conclusion=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.conclusion')
@@ -34,6 +34,9 @@ jobs:
             echo "::error::Source workflow must be successful at the exact pinned commit"
             exit 1
           fi
+
+          test "$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.event')" = push
+          test "$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.head_branch')" = main
 
           artifacts=(
             stockless-variants-windows-x86-64
@@ -74,6 +77,76 @@ jobs:
             done
           )
           echo "Five archive and checksum pairs validated."
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib
+          import json
+
+          required = {
+              "stockless-variants-0.2.0-dev-windows-x86-64.zip": ("windows", "x86-64"),
+              "stockless-variants-0.2.0-dev-windows-x86-64-avx2.zip": ("windows", "x86-64-avx2"),
+              "stockless-variants-0.2.0-dev-linux-x86-64.zip": ("linux", "x86-64"),
+              "stockless-variants-0.2.0-dev-linux-x86-64-avx2.zip": ("linux", "x86-64-avx2"),
+              "stockless-variants-0.2.0-dev-android-arm64-armv8.zip": ("android-arm64", "armv8"),
+          }
+          names = {
+              "nn-46832cfbead3.nnue", "janggi-9991472750de.nnue",
+              "shogi-878ca61334a7.nnue", "xiangqi-c07e94a5c7cb.nnue",
+              "makruk-a8c621e24a8c.nnue", "crazyhouse-8ebf84784ad2.nnue",
+          }
+          paths = list(Path("release-assets").glob("*.zip"))
+          if {p.name for p in paths} != set(required):
+              raise SystemExit("Missing/extra or incorrectly named release archives")
+          reference_hashes = None
+          for path in paths:
+              platform, arch = required[path.name]
+              with ZipFile(path) as z:
+                  if z.testzip() is not None:
+                      raise SystemExit(f"Corrupt ZIP: {path.name}")
+                  manifest = json.loads(z.read("manifest.json"))
+                  expected = {"version": "0.2.0-dev",
+                              "commit": "b9bad5fa66cae38b7d557395ec1f21741929ddf2",
+                              "platform": platform, "architecture": arch,
+                              "status": "experimental-development-build"}
+                  if any(manifest.get(k) != v for k, v in expected.items()):
+                      raise SystemExit(f"Incorrect source or build target: {path.name}")
+                  members = set(z.namelist())
+                  for item in ["corresponding-source.zip", "fsf-networks-manifest.json", "docs/FSF_NNUE.md"]:
+                      if item not in members:
+                          raise SystemExit(f"{path.name}: missing {item}")
+                  models = manifest.get("fsf_nnue_networks", [])
+                  if len(models) != 6 or {m["filename"] for m in models} != names:
+                      raise SystemExit(f"{path.name}: missing official NNUE models")
+                  if json.loads(z.read("fsf-networks-manifest.json")).get("files") != models:
+                      raise SystemExit(f"{path.name}: neural provenance mismatch")
+                  hashes = {m["filename"]: m["sha256"] for m in models}
+                  if reference_hashes is not None and hashes != reference_hashes:
+                      raise SystemExit(f"{path.name}: model versions differ across platforms")
+                  reference_hashes = hashes
+                  if platform != "android-arm64":
+                      if "fsf-nnue-tests.json" not in manifest.get("validation_files", []):
+                          raise SystemExit(f"{path.name}: missing FSF runtime test")
+                      result = json.loads(z.read("validation/fsf-nnue-tests.json"))
+                      if result.get("failed") != 0 or result.get("passed", 0) < 6:
+                          raise SystemExit(f"{path.name}: invalid FSF runtime validation")
+                  elif manifest.get("runtime_tested_in_this_package"):
+                      raise SystemExit(f"{path.name}: Android device testing incorrectly claimed")
+                  for member, digest in manifest["files"].items():
+                      h = hashlib.sha256()
+                      with z.open(member) as inp:
+                          for block in iter(lambda: inp.read(1024 * 1024), b""):
+                              h.update(block)
+                      if h.hexdigest() != digest:
+                          raise SystemExit(f"{path.name}: member SHA256 mismatch: {member}")
+                  for model in models:
+                      filename = model["filename"]
+                      if f"networks/{filename}" not in members:
+                          raise SystemExit(f"{path.name}: missing {filename}")
+                      if not model["sha256"].startswith(filename.rsplit("-", 1)[-1].split(".")[0]):
+                          raise SystemExit(f"{path.name}: official NNUE filename hash mismatch")
+                  print("Verified original FSF networks and executable package:", path.name)
+          PY
 
       - name: Publish/update latest GitHub Release
         env:
@@ -82,34 +155,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=v0.2.0-dev
-          SOURCE_SHA=8aa329e240d2761f9a7ae9454a846be84388b016
+          TAG=v0.2.0-dev-fsf-nnue
+          SOURCE_SHA=b9bad5fa66cae38b7d557395ec1f21741929ddf2
 
           cat > release-notes.md <<'NOTES'
-          Stockless Variants experimental development binaries from the successful multi-platform build.
+          ## Stockless Variants v0.2.0-dev — original FSF NNUE bundle (experimental)
 
-          **Source commit:** `8aa329e240d2761f9a7ae9454a846be84388b016`
-          **Build workflow:** https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40303979772
+          Published from the fully passing [six-job multi-platform build](https://github.com/gaong5247-cmd/Stockless-variants/actions/runs/40599222547) for commit b9bad5fa66cae38b7d557395ec1f21741929ddf2.
 
-          The five ready-to-download engine ZIPs are:
-          - Windows x86-64
-          - Windows x86-64 AVX2
-          - Linux x86-64
-          - Linux x86-64 AVX2
-          - Android ARM64 (API 26+)
+          Five verified engine packages: Windows x86-64, Windows x86-64 AVX2, Linux x86-64, Linux x86-64 AVX2 and Android ARM64 (API 26+, native executable, **not an APK**). Each ZIP provides the engine, exact corresponding C++ source, legal notices, matching SHA256 checksums, and six original, unmodified Fairy-Stockfish NNUE models: Chess, Janggi, Shogi, Xiangqi, Makruk, and Crazyhouse.
 
-          Each ZIP contains the corresponding source, licenses, notices, configuration, and capability catalog.
-          Each archive has its own `.zip.sha256` file. Linux/Windows packages include runtime test evidence.
-          **Android ARM64 is cross-compiled and architecture-checked, not runtime-tested on an Android device.**
+          All models are SHA256-verified against their original official filenames and complete file digests. Refer to [Fairy-Stockfish's NNUE downloads](https://fairy-stockfish.github.io/nnue/), the bundled fsf-networks-manifest.json (authors, URLs and checksums), and docs/FSF_NNUE.md. Stockless experimental SVNNUE-v1 and upstream FSF NNUE are distinct formats.
 
-          This is a development release; no measured playing-strength / Elo claim is made.
+          **Validation:** Windows/Linux executable and FSF NNUE runtime tests passed, including protocol and variant checks. Android was cross-compiled and architecture checked, but not runtime-tested on a physical phone. AVX2 targets require a capable CPU. Experimental development release, not Elo-certified and not claimed stable.
+
+          **Model rights notice:** The FSF webpage's CC0 statement applies to models dated 2026 or later; older models' redistribution rights require confirmation from their authors. Model authors retain their respective rights.
           NOTES
 
           if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
             gh release upload "$TAG" release-assets/* -R "$REPO" --clobber
-            gh release edit "$TAG" -R "$REPO" --title 'Stockless Variants v0.2.0-dev' --notes-file release-notes.md --draft=false --prerelease=false --latest
+            gh release edit "$TAG" -R "$REPO" --title 'Stockless Variants v0.2.0-dev (FSF NNUE bundle)' --notes-file release-notes.md --draft=false --prerelease=false --latest
           else
-            gh release create "$TAG" release-assets/* -R "$REPO" --target "$SOURCE_SHA" --title 'Stockless Variants v0.2.0-dev' --notes-file release-notes.md --latest
+            gh release create "$TAG" release-assets/* -R "$REPO" --target "$SOURCE_SHA" --title 'Stockless Variants v0.2.0-dev (FSF NNUE bundle)' --notes-file release-notes.md --latest
           fi
 
-          gh release view "$TAG" -R "$REPO" --json url,isLatest,isDraft,isPrerelease,assets
+          test "$(gh api "repos/$REPO/releases/latest" --jq '.tag_name')" = "$TAG"
+          gh api "repos/$REPO/releases/tags/$TAG" --jq '{url: .html_url, tag: .tag_name, assets: [.assets[].name], prerelease: .prerelease}'
