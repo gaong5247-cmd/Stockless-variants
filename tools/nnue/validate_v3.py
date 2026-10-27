@@ -34,11 +34,29 @@ def main():
     metrics=json.loads((modeldir/"metrics.json").read_text())
     net_desc=manifest["descriptor"]
     native_desc=summary["descriptor"]
-    compatible={key:value for key,value in net_desc.items() if key!="qa"}=={
-        key:value for key,value in native_desc.items() if key!="qa"}
+    # QA may vary by explicitly signed model header; the native feature
+    # index contract is independent of that fixed-point precision.
+    feature_core=lambda d:{k:v for k,v in d.items() if k not in ("qa","rules_sha256")}
+    compatible=feature_core(net_desc)==feature_core(native_desc)
     if (manifest["dataset_signature"]!=summary["signature"]
         or metrics["dataset_signature"]!=summary["signature"]
         or not compatible or not manifest["quantization_passed"]):
+        raise ValueError("Trained v3 model and source index mismatch")
+    if net_desc["rules_sha256"] != native_desc["rules_sha256"]:
+        attestation=modeldir/"feature-compatibility.json"
+        if not attestation.is_file() or (
+            manifest.get("rebind_attestation_sha256")!=digest(attestation)):
+            raise ValueError("Cross-runtime model lacks SHA-bound native feature replay attestation")
+        att=json.loads(attestation.read_text())
+        if (att.get("contract")!="svnnue3-explicit-feature-rebind-v1"
+            or att.get("source_dataset_signature")!=summary["signature"]
+            or att.get("source_rules_sha256")!=native_desc["rules_sha256"]
+            or att.get("target_rules_sha256")!=net_desc["rules_sha256"]
+            or att.get("frozen_real_heldout_positions_checked",0)<128
+            or att.get("native_features_matched") is not True
+            or att.get("new_native_engine_sha256")!=digest(a.engine.resolve())):
+            raise ValueError("Original/new executable feature parity attestation mismatch")
+    if not manifest["quantization_passed"]:
         raise ValueError("Trained v3 model and source index mismatch")
     network=modeldir/manifest["network"]
     if digest(network)!=manifest["network_sha256"]:

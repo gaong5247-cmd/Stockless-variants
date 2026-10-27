@@ -1,0 +1,166 @@
+name: Recover existing 8.153M SVNNUE3 training with higher fixed-point precision
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-reexport-8m.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: svnnue3-original-eight-million-qa2048
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VARIANT: ${{ matrix.variant }}
+      DATA_RUN: '40475358787'
+      DATA_COMMIT: '12063059cdabc355053f6c9373bfe9642858c63c'
+      TRAIN_RUN: '40505711978'
+      TRAIN_COMMIT: 'bd5eb153ff3abffd69784bbfa1090cdde9048067'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install original pinned SciPy/NumPy for exact prior optimizer state
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Verify original generation and the exact known six-epoch training run
+        run: |
+          set -euo pipefail
+          data_sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DATA_RUN" --jq .head_sha)
+          train_sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TRAIN_RUN" --jq .head_sha)
+          if [ "$data_sha" != "$DATA_COMMIT" ] || [ "$train_sha" != "$TRAIN_COMMIT" ]; then
+            echo "::error::Source dataset/training evidence is not the original pinned data";exit 1
+          fi
+          echo 'The old training job failed its QA256 quantization gate, not the 6-epoch fit.'
+      - name: Compile new QA-aware native runtime, preserving mainline engine
+        run: |
+          set -euo pipefail
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/new-engine
+          cp build/engine/src/stockless-variants build/new-engine/stockless-variants
+          sha256sum build/new-engine/stockless-variants
+      - name: Restore exact original native teacher binary, not a recreated approximation
+        run: |
+          set -euo pipefail
+          mkdir -p build/teacher
+          gh run download "$DATA_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "v3-diverse-teacher-$DATA_COMMIT" --dir build/teacher
+          tar -xzf build/teacher/stockless-v3-teacher.tgz
+          chmod +x build/engine/src/stockless-variants
+          sha256sum build/engine/src/stockless-variants
+      - name: Restore complete six-epoch Adam/AdaGrad weights from the failed-QA job
+        run: |
+          set -euo pipefail
+          name="svnnue3-million-trained-$VARIANT-$TRAIN_COMMIT"
+          mkdir -p build/old-trained
+          gh run download "$TRAIN_RUN" -R "$GITHUB_REPOSITORY" \
+            --name "$name" --dir build/old-trained
+          test -s build/old-trained/latest.json
+          test -s build/old-trained/metrics.json
+          test -s build/old-trained/network-manifest.json
+          ls -lh build/old-trained
+      - name: Restore the twelve original fingerprinted royal-feature data shards
+        run: |
+          set -euo pipefail
+          for i in $(seq 0 11); do
+            folder="build/original/v3-diverse-data-$VARIANT-$i"
+            mkdir -p "$folder"
+            gh run download "$DATA_RUN" -R "$GITHUB_REPOSITORY" \
+              --name "v3-diverse-data-$VARIANT-$i" --dir "$folder"
+            test -s "$folder/games.jsonl"
+            test -s "$folder/positions.jsonl"
+            test -s "$folder/fingerprints.sha256.bin"
+          done
+      - name: Verify exact original 12-shard game data and rebuild indexed training split
+        run: |
+          python tools/nnue/merge_diverse_v3.py \
+            --input-root build/original \
+            --output "build/merged/$VARIANT" \
+            --variant "$VARIANT" --shards 12 --games-per-shard 1024
+      - name: Prove original and new binary expose exactly the same native royal features
+        run: |
+          python tools/nnue/rebind_v3_features.py \
+            --source "build/merged/$VARIANT" \
+            --out "build/repacked/$VARIANT" \
+            --old-engine build/engine/src/stockless-variants \
+            --new-engine build/new-engine/stockless-variants \
+            --positions 128 --seed 20261027
+      - name: Re-export real six-epoch trained weights with QA2048 and unchanged error limits
+        run: |
+          python tools/nnue/requantize_v3.py \
+            --checkpoint-dir build/old-trained \
+            --index-dir "build/repacked/$VARIANT" \
+            --output "build/high-precision/$VARIANT" \
+            --qa 2048 --batch-size 256 --seed 20261027
+      - name: Verify deployed integer inference and legal search on frozen heldout states
+        run: |
+          # The dataset-bound SQLite index is reverified, never synthesized.
+          cp "build/repacked/$VARIANT/index.sqlite3" \
+            "build/high-precision/$VARIANT/index.sqlite3"
+          python tools/nnue/validate_v3.py \
+            --engine build/new-engine/stockless-variants \
+            --model-dir "build/high-precision/$VARIANT" \
+            --positions 128 \
+            --report "build/high-precision/$VARIANT/native-validation.json"
+      - name: Print actual optimized integer-model and original training evidence
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          root=Path('build/high-precision')/os.environ['VARIANT']
+          lines=[f"## {os.environ['VARIANT']} re-quantized 8M original data model"]
+          m=root/'metrics.json'
+          if m.exists():
+              data=json.loads(m.read_text())
+              lines.append(f"Original training: {data['epochs_completed']} epochs, {data['gradient_steps']} steps, "
+                           f"best epoch {data['selected_epoch']}, no new gradient steps.")
+              lines.append(f"Quantizer QA: {data['quant_qa']}; unchanged limits {data['limits_unchanged']}; "
+                           f"passed {data['quantization_passed']}.")
+              lines.append(f"Test float/integer MAE {data['test']['quantization']['mae_cp']:.3f} cp "
+                           f"and deployed teacher MAE {data['test']['deployed_native_integer_teacher_mae_cp']:.3f} cp.")
+          n=root/'native-validation.json'
+          if n.exists():
+              data=json.loads(n.read_text())
+              lines.append(f"Real native feature/integer/search checks {data['passed']}, failed {data['failed']}.")
+          lines.append("No invented Elo and no automatic Classical replacement.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as dest:
+              dest.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svnnue3-eight-million-qa2048-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/high-precision/${{ matrix.variant }}/*.svnnue
+            build/high-precision/${{ matrix.variant }}/metrics.json
+            build/high-precision/${{ matrix.variant }}/network-manifest.json
+            build/high-precision/${{ matrix.variant }}/feature-compatibility.json
+            build/high-precision/${{ matrix.variant }}/index-summary.json
+            build/high-precision/${{ matrix.variant }}/native-validation.json
+            build/high-precision/${{ matrix.variant }}/latest.json
+            build/high-precision/${{ matrix.variant }}/state-epoch-*.npz
+          retention-days: 30
+          if-no-files-found: warn
