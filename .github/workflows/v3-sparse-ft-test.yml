@@ -1,0 +1,33 @@
+name: SVNNUE3 exact sparse FT gradient and full optimizer resume
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-sparse-ft-test.yml'
+      - 'tools/nnue/sparse_ft.py'
+      - 'tests/v3_sparse_ft_test.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sparse-cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned NumPy and SciPy CPU packages
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Validate touched-feature gradient, unused row safety and exact optimizer restart
+        run: python tests/v3_sparse_ft_test.py
