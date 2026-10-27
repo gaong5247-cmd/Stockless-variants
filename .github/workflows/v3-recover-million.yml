@@ -61,6 +61,19 @@ jobs:
             }
           done
           echo "All twelve exact original source archives retrieved for $VARIANT"
+      - name: Reject incomplete archive pagination and list exact 12 downloaded manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for shard in $(seq 0 11); do
+            root="build/source/v3-diverse-data-$VARIANT-$shard"
+            test -s "$root/manifest.json"
+            test -s "$root/audit.json"
+            test -s "$root/positions.jsonl"
+            test -s "$root/games.jsonl"
+            test -s "$root/fingerprints.sha256.bin"
+            sha256sum "$root/manifest.json"
+          done
       - name: Independently verify the original 12 SHA-bound manifests, game histories and missing seeds
         run: |
           python tools/recover_diverse_v3.py \
