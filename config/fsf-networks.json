@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "source": "https://fairy-stockfish.github.io/nnue/",
+  "description": "Curated official Fairy-Stockfish networks, pinned to exact upstream names and links; verified by SHA256 filename prefix before packaging.",
+  "networks": [
+    {
+      "variant": "chess",
+      "filename": "nn-46832cfbead3.nnue",
+      "url": "https://tests.stockfishchess.org/api/nn/nn-46832cfbead3.nnue",
+      "author": "Stockfish developers"
+    },
+    {
+      "variant": "janggi",
+      "filename": "janggi-9991472750de.nnue",
+      "url": "https://drive.google.com/u/0/uc?id=1dAEzbK1rOm8UGm_-CLdDEgeopFDcAtQP&export=download",
+      "author": "belzedar_"
+    },
+    {
+      "variant": "shogi",
+      "filename": "shogi-878ca61334a7.nnue",
+      "url": "https://drive.google.com/u/0/uc?id=1RA0mstKWi_tH98DVdLGBamEdE8FXiSgB&export=download",
+      "author": "Fabian Fichter"
+    },
+    {
+      "variant": "xiangqi",
+      "filename": "xiangqi-c07e94a5c7cb.nnue",
+      "url": "https://drive.google.com/u/0/uc?id=18-zDt7z4H9_IQVvcWIvndnKjC5LZhAfm&export=download",
+      "author": "Pikafish developers"
+    },
+    {
+      "variant": "makruk",
+      "filename": "makruk-a8c621e24a8c.nnue",
+      "url": "https://drive.google.com/u/0/uc?id=1jOhdVe1VBZjBaPWO2IYR1_iscyMA0ylW&export=download",
+      "author": "belzedar_"
+    },
+    {
+      "variant": "crazyhouse",
+      "filename": "crazyhouse-8ebf84784ad2.nnue",
+      "url": "https://drive.google.com/u/0/uc?id=1nieguR4yCb0BlME-AUhcrFYkmyIOGvqs&export=download",
+      "author": "belzedar_"
+    }
+  ]
+}

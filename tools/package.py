@@ -11,6 +11,8 @@ import shutil
 import sys
 import zipfile
 
+from fsf_networks import verify as verify_fsf_networks, MANIFEST as FSF_MANIFEST
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -26,8 +28,12 @@ def main() -> None:
     parser.add_argument("--arch", default="x86-64")
     parser.add_argument("--report", type=Path, action="append", default=[])
     parser.add_argument("--catalog", type=Path, default=ROOT / "docs/variants.json")
+    parser.add_argument("--fsf-net-dir", type=Path, default=ROOT / "build/fsf-networks",
+                        help="Required downloaded and SHA256-verified official FSF networks")
     args = parser.parse_args()
     engine = args.engine.resolve()
+    network_source = args.fsf_net_dir.resolve()
+    networks = verify_fsf_networks(network_source)
     build = args.build_dir.resolve()
     if not engine.is_file():
         parser.error(f"Missing executable: {engine}")
@@ -67,6 +73,19 @@ def main() -> None:
     shutil.copytree(ROOT / "config", stage / "config")
     shutil.copy2(args.catalog, stage / "variants.json")
     shutil.copytree(ROOT / "docs", stage / "docs")
+    # Original, unmodified FSF NNUE files are distributed next to the engine.
+    shutil.copytree(network_source / "networks", stage / "networks")
+    shutil.copy2(network_source / FSF_MANIFEST, stage / FSF_MANIFEST)
+    (stage / "NETWORKS.md").write_text(
+        "# Bundled Fairy-Stockfish NNUE networks\n\n"
+        "Files in `networks/` are unmodified downloads linked from "
+        "https://fairy-stockfish.github.io/nnue/. Source URLs, authors and "
+        "SHA-256 digests are listed in `fsf-networks-manifest.json`.\n\n"
+        "The engine uses the upstream FSF EvalFile format, auto-selecting "
+        "a variant-matching network if available. Experimental Stockless "
+        "SVNNUE-v1 files use a separate .svnnue format. Network authors "
+        "retain their respective rights; see original source pages.\n"
+    )
     shutil.copy2(build / "AUTHORS", stage / "AUTHORS.FAIRY-STOCKFISH")
     shutil.copy2(build / "Copying.txt", stage / "Copying.FAIRY-STOCKFISH.txt")
     (stage / "validation").mkdir()
@@ -93,13 +112,15 @@ def main() -> None:
         archive.writestr("BUILD.txt", f"Stockless Variants {manifest['version']}\nSource commit: {manifest['commit']}\n"
                           + compiler_setup
                           + f"make -C src -j2 build ARCH={args.arch}{compiler_args} largeboards=yes all=yes nnue=no EXE={engine.name}\n"
-                          "No neural network is embedded or required. See the supplied licenses and NOTICE.\n")
+                          "FSF .nnue networks are loaded externally from networks/ at runtime. "
+                          "No NNUE model is embedded in the binary. See source licenses and NOTICE.\n")
 
     packaged = {"version": manifest["version"], "commit": manifest["commit"],
                 "working_tree_dirty": manifest.get("working_tree_dirty", True),
                 "status": "experimental-development-build", "platform": args.platform,
                 "architecture": args.arch, "engine_sha256": sha256(engine),
-                "evaluation": "classical", "nnue": manifest.get("nnue"),
+                "evaluation": "FSF NNUE by default when bundled; classical for other variants",
+                "fsf_nnue_networks": networks, "nnue": manifest.get("nnue"),
                 "upstream": manifest["upstream"],
                 "validation_files": [p.name for p in args.report],
                 "runtime_tested_in_this_package": bool(args.report),
