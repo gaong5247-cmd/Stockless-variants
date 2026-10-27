@@ -31,7 +31,7 @@ def entries():
         variant, name, url = entry["variant"], entry["filename"], entry["url"]
         if not re.fullmatch(r"[a-z0-9-]+", variant):
             raise ValueError(f"Unsafe variant: {variant!r}")
-        if not re.fullmatch(r"[a-z0-9-]+-[0-9a-f]{12}\\.nnue", name):
+        if not re.fullmatch(r"[a-z0-9-]+-[0-9a-f]{12}\.nnue", name):
             raise ValueError(f"Unexpected NNUE filename: {name!r}")
         expected_prefix = "nn-" if variant == "chess" else variant + "-"
         if not name.startswith(expected_prefix):
