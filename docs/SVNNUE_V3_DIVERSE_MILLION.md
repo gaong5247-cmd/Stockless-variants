@@ -61,6 +61,43 @@ The target is not substituted for evidence. Cross-game inputs are kept
 separate; an identical-looking position in two different rule systems is
 never pooled for one variant's count.
 
+## Using the data to train the actual v3 NNUE
+
+For a variant, retrieve its twelve audited source artifacts or published
+research ZIPs, and extract each source archive into a distinct numbered folder
+under one parent directory (for example: corpus/chess/0 through /11). Each
+folder must contain its original games.jsonl, positions.jsonl,
+fingerprints.sha256.bin, audit.json and manifest.json files.
+
+A streaming, lossless merger is implemented in
+[merge_diverse_v3.py](../tools/nnue/merge_diverse_v3.py). It checks every
+original native rule descriptor, teacher binary SHA, unique independent seed,
+full JSONL SHA and every position fingerprint before concatenating (no rows or
+game results are fabricated, reweighted, or discarded).
+
+    python tools/nnue/merge_diverse_v3.py \
+      --input-root corpus/chess --output build/chess-diverse-merged \
+      --variant chess --shards 12 --games-per-shard 1024
+
+Once merged, the original disk-backed learner can build an SQLite index from
+that manifest and learn with the v3-specific king-bucket features:
+
+    python tools/nnue/train_v3.py \
+      --data build/chess-diverse-merged \
+      --output build/chess-v3-trained --epochs 8 --batch-size 64
+
+The trainer supports resumable full Adam state, but multi-million-parameter
+dense moment updates can still be CPU-expensive for over one million rows.
+Actual training duration, heldout teacher error and quantization checks must
+be measured; this campaign proves the data source, not the convergence or
+strength of any subsequently fitted model. Only promote network weights
+after native integer parity, evaluation throughput and paired matches pass.
+
+The [multi-shard merge regression workflow](../.github/workflows/v3-merge-smoke.yml)
+passed all five game variants on real four-profile examples with whole-game
+heldout partitions and lossless row counts. The same merging path supports
+the full twelve-shard corpora.
+
 ## Data availability and follow-on training
 
 Each of the 60 full shard artifacts contains complete histories, feature
