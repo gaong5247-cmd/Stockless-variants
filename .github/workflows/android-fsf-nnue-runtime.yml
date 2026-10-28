@@ -1,0 +1,91 @@
+name: Verify FSF NNUE on ARM64 and Android
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android-fsf-nnue-runtime.yml'
+      - 'tests/android_fsf_nnue_adb_test.py'
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-neon-evaluation:
+    name: ARM64 native NEON NNUE inference (Linux control)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download official FSF networks
+        run: |
+          python -m pip install --disable-pip-version-check gdown==5.2.0
+          python tools/fsf_networks.py download
+      - name: Build native ARM64 with NEON, same FSF NNUE implementation
+        run: |
+          make build ARCH=armv8 JOBS=4
+          file build/engine/src/stockless-variants
+      - name: Real ARM64 native NNUE evaluation (not an Android runtime test)
+        run: |
+          python tests/fsf_nnue_runtime_test.py \
+            --engine build/engine/src/stockless-variants \
+            --report build/fsf-nnue-arm64-linux-report.json
+      - name: Preserve machine-readable evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm64-native-fsf-nnue-evidence
+          path: build/fsf-nnue-arm64-linux-report.json
+          if-no-files-found: warn
+
+  android-arm64-runtime:
+    name: Real Android ARM64 native NNUE (emulator)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and integrity-check released Android ARM64 engine + original networks
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          archive=stockless-variants-0.2.0-dev-android-arm64-armv8.zip
+          gh release download v0.2.0-dev-fsf-nnue -p "$archive" -p "$archive.sha256" --dir .
+          shasum -a 256 -c "$archive.sha256"
+          mkdir -p build/android-release
+          unzip -q "$archive" -d build/android-release
+          test -f build/android-release/stockless-variants
+          test -f build/android-release/networks/janggi-9991472750de.nnue
+          chmod +x build/android-release/stockless-variants
+          file build/android-release/stockless-variants
+      - name: Run real FSF NNUE inference under Android ARM64
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_2
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            python3 tests/android_fsf_nnue_adb_test.py \
+              --engine build/android-release/stockless-variants \
+              --net-dir build/android-release \
+              --report build/android-fsf-nnue-report.json \
+              --janggi-modes
+      - name: Upload Android NNUE evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-fsf-nnue-evidence
+          path: build/android-fsf-nnue-report.json
+          if-no-files-found: warn
