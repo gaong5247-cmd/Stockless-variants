@@ -1,0 +1,76 @@
+name: Test verified SVNNUE3 profile-shard merge and streaming-training index
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-merge-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - run: python -m pip install -r tools/nnue/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40475004484
+          name: diverse-smoke-${{ matrix.variant }}
+          github-token: ${{ github.token }}
+          path: build/diverse-original
+      - name: Re-verify four independent shard manifests and merge JSONL losslessly
+        run: |
+          python tools/nnue/merge_diverse_v3.py \
+            --input-root build/diverse-original \
+            --output build/diverse-merged \
+            --variant "$VARIANT" --shards 4 --games-per-shard 10
+      - name: Prove merged dataset can feed the exact native disk-backed trainer index
+        run: |
+          python3 - <<'PY'
+          import json,os,sys
+          from pathlib import Path
+          root=Path('build/diverse-merged')
+          manifest=json.loads((root/'manifest.json').read_text())
+          sys.path.insert(0,'tools/nnue')
+          from dataset_v3 import build
+          idx=build(root,Path('build/index.sqlite3'),20261027)
+          assert manifest['variant']==os.environ['VARIANT']
+          assert manifest['games']==40==idx['game_count']
+          assert idx['input_rows']==manifest['positions']
+          assert idx['distinct_rows']>=idx['partitions']['train']
+          assert idx['partitions']['validation']>=8 and idx['partitions']['test']>=8
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"### {manifest['variant']} lossless streaming merge PASS\n\n")
+              f.write(f"Input rows: {idx['input_rows']}; retained unique model rows: {idx['distinct_rows']}. ")
+              f.write(f"Game-safe train/validation/test: {idx['partitions']}.\n")
+          print(json.dumps({'variant':idx['descriptor']['variant'],
+                            'rows':idx['input_rows'],'unique':idx['distinct_rows'],
+                            'splits':idx['partitions']}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: merged-v3-diverse-smoke-${{ matrix.variant }}
+          path: build/diverse-merged/manifest.json
+          retention-days: 14
+          if-no-files-found: error

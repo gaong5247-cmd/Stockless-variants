@@ -19,6 +19,8 @@ namespace Stockfish::Stockless::Neural {
 
 constexpr std::uint32_t FormatVersion = 1;
 constexpr std::uint32_t FeatureVersion = 1;
+constexpr std::uint32_t V2FormatVersion = 2;
+constexpr std::uint32_t V2FeatureVersion = 2;
 constexpr std::uint32_t Hidden = 64;
 constexpr std::uint32_t QA = 256;
 constexpr std::uint32_t QB = 64;
@@ -52,8 +54,8 @@ struct Probe {
 
 bool supported_variant(const Variant* variant);
 std::string variant_name(const Variant* variant);
-std::string descriptor_json(const Variant* variant);
-std::vector<std::pair<std::uint32_t, std::int32_t>> sparse_features(const Position& pos);
+std::string descriptor_json(const Variant* variant, bool v2 = false);
+std::vector<std::pair<std::uint32_t, std::int32_t>> sparse_features(const Position& pos, bool v2 = false);
 
 // Load/select only while the search is stopped. Protocol callbacks enforce
 // that boundary. Failed loads preserve the previous model and backend.

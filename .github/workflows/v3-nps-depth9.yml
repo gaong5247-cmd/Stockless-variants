@@ -1,0 +1,136 @@
+name: SVNNUE3 prolonged depth-9 ISA search benchmark
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-nps-depth9.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Confirm AVX2-capable benchmark host
+        run: |
+          grep -Eqi '(^|[[:space:]])avx2([[:space:]]|$)' /proc/cpuinfo ||
+            { echo "::error::AVX2 hardware unavailable"; exit 1; }
+      - name: Compile scalar and save exact binary outside regenerated source tree
+        run: |
+          set -euo pipefail
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/bench-binaries
+          cp build/engine/src/stockless-variants build/bench-binaries/scalar
+      - name: Rebuild exact same source for AVX2 execution
+        run: |
+          set -euo pipefail
+          make build ARCH=x86-64-avx2 JOBS=2
+          cp build/bench-binaries/scalar build/engine/src/stockless-variants-scalar
+          sha256sum build/engine/src/stockless-variants build/engine/src/stockless-variants-scalar
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40470010550
+          name: svnnue3-pilot-${{ matrix.variant }}-dd59c6851f2f0094fe348b284cea9981917a6ae7
+          github-token: ${{ github.token }}
+          path: build/benched-model
+      - name: Verify the fixed, trained model identity
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          v=os.environ['VARIANT']
+          root=Path('build/benched-model/model')
+          manifest=json.loads((root/'network-manifest.json').read_text())
+          network=root/(v+'.svnnue')
+          actual=hashlib.sha256(network.read_bytes()).hexdigest()
+          assert manifest['schema']==3
+          assert manifest['descriptor']['variant']==v
+          assert manifest['network_sha256']==actual
+          assert network.read_bytes()[:8]==b'SVNNUE3\x00'
+          print(f'Verified trained {v} network SHA256 {actual}')
+          PY
+      - name: Prolonged scalar 20-position, depth-9 search
+        run: |
+          python tools/nps_v3.py \
+            --engine build/engine/src/stockless-variants-scalar \
+            --model "build/benched-model/model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --depth 9 --positions 20 \
+            --seed 20261027 --output build/bench-results/scalar.json
+      - name: Prolonged AVX2 20-position, depth-9 search
+        run: |
+          python tools/nps_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model "build/benched-model/model/$VARIANT.svnnue" \
+            --variant "$VARIANT" --depth 9 --positions 20 \
+            --seed 20261027 --output build/bench-results/avx2.json
+      - name: Strictly match input samples, model identities and full search coverage
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('build/bench-results')
+          s=json.loads((root/'scalar.json').read_text())
+          a=json.loads((root/'avx2.json').read_text())
+          for key in ('variant','network_sha256','depth'):
+              if s[key]!=a[key]:raise SystemExit(f'{key} differs between scalar and AVX2')
+          if s['variant']!=os.environ['VARIANT'] or s['depth']!=9:
+              raise SystemExit('Unexpected game or benchmark depth')
+          if len(s['records'])!=20 or len(a['records'])!=20:
+              raise SystemExit('Missing benchmark samples')
+          if any(x['opening_moves']!=y['opening_moves'] for x,y in zip(s['records'],a['records'])):
+              raise SystemExit('Matched benchmark opening sequence changed')
+          for record in (s,a):
+              for key in ('classical','nnue_v3'):
+                  m=record[key]
+                  if (m['measured_positions']!=20 or not m['nps']
+                      or m['nodes']<=0 or m['time_ms']<=0):
+                      raise SystemExit(f'Incomplete depth-9 search data in {key}')
+          scalar=s['nnue_v3']['nps']
+          simd=a['nnue_v3']['nps']
+          report={
+              'schema':3,'variant':s['variant'],
+              'scalar_engine_sha256':s['engine_sha256'],
+              'avx2_engine_sha256':a['engine_sha256'],
+              'network_sha256':s['network_sha256'],
+              'samples':20,'depth':9,
+              'nnue_scalar_nps':scalar,
+              'nnue_avx2_nps':simd,
+              'nnue_avx2_over_scalar_ratio':simd/scalar,
+              'classical_scalar_nps':s['classical']['nps'],
+              'classical_avx2_nps':a['classical']['nps'],
+              'nnue_over_classical_avx2_ratio':simd/a['classical']['nps'],
+              'limitation':'Matched fixed-depth search, not an isolated evaluator benchmark or Elo estimate.'
+          }
+          (root/'comparison.json').write_text(json.dumps(report,indent=2)+'\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write(f"## {s['variant']} depth-9 scalar versus AVX2\n\n")
+              out.write(f"20 matched positions; SVNNUE3 scalar NPS {scalar:.0f}; AVX2 NPS {simd:.0f}; "
+                        f"ratio {simd/scalar:.3f}x.\n\n")
+              out.write('Search trees may differ; no model-strength/Elo claim.\n')
+          print(json.dumps(report))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svnnue3-depth9-${{ matrix.variant }}-${{ github.sha }}
+          path: build/bench-results/*.json
+          retention-days: 30
+          if-no-files-found: warn

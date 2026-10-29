@@ -1,0 +1,78 @@
+name: Inspect real million-row V3 quantization failures
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-quantization-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [chess, janggi, shogi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tools/nnue/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40505711978
+          pattern: svnnue3-million-trained-${{ matrix.variant }}-*
+          path: build/real-model
+          merge-multiple: true
+          github-token: ${{ github.token }}
+      - name: Audit original best model, checkpoint validity and quantization residual
+        run: |
+          python3 - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          import numpy as np
+          p=Path('build/real-model')
+          var=os.environ['VARIANT']
+          files=sorted(x.name for x in p.iterdir())
+          summary={'variant':var,'files':files}
+          if (p/'metrics.json').exists():
+              m=json.loads((p/'metrics.json').read_text())
+              for key in ('optimizer','epochs_completed','gradient_steps',
+                          'selected_epoch','quantization','quantization_passed',
+                          'validation','test'):
+                  summary[key]=m.get(key)
+          if (p/'index-summary.json').exists():
+              x=json.loads((p/'index-summary.json').read_text())
+              summary['indexed_rows']=x['input_rows']
+              summary['unique_rows']=x['distinct_rows']
+              summary['splits']=x['partitions']
+          if (p/'latest.json').exists():
+              checkpoint=json.loads((p/'latest.json').read_text())
+              summary['checkpoint_epoch']=checkpoint['epoch']
+              summary['checkpoint_integrity']=(
+                  hashlib.sha256((p/checkpoint['filename']).read_bytes()).hexdigest()
+                  ==checkpoint['sha256'])
+          if (p/'checkpoint_best.npz').exists():
+              with np.load(p/'checkpoint_best.npz',allow_pickle=False) as w:
+                  stats={}
+                  for key in w:
+                      arr=w[key]
+                      stats[key]={'shape':arr.shape,'min':float(arr.min()),
+                           'max':float(arr.max()),
+                           'mean_abs':float(np.abs(arr).mean())}
+                  summary['weights']=stats
+          print(json.dumps(summary,sort_keys=True,allow_nan=False),flush=True)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write('### '+var+' million-row quantization diagnostics\n\n')
+              out.write('Source: independently certified real 7.998M inputs. No Elo claim.\n\n')
+              out.write(json.dumps(summary,indent=2,sort_keys=True)+'\n')
+          PY

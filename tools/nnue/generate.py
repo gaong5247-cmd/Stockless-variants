@@ -61,6 +61,7 @@ class Engine:
 
     def __init__(self, executable: Path, timeout: float):
         self.timeout = timeout
+        self.feature_version = 1
         self.process = subprocess.Popen(
             [str(executable), "noautoload"], cwd=executable.parent,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -129,7 +130,7 @@ class Engine:
         self.send("position startpos" + (" moves " + " ".join(moves) if moves else ""))
 
     def features(self) -> dict:
-        self.send("nnuefeatures")
+        self.send("nnuefeaturesv2" if self.feature_version == 2 else "nnuefeatures")
         response = self.until(lambda line: line.startswith(FEATURE_PREFIX))[-1]
         state = json.loads(response[len(FEATURE_PREFIX):])
         if "error" in state:
@@ -179,8 +180,9 @@ def validate_state(state: dict, variant: str, expected: dict | None = None) -> d
     descriptor = state.get("descriptor", {})
     if state.get("schema") != 1 or descriptor.get("supported") is not True:
         raise ValueError("unsupported native export schema or descriptor")
-    if (descriptor.get("variant") != variant or descriptor.get("feature_version") != 1
-            or descriptor.get("format_version") != 1):
+    version = descriptor.get("format_version")
+    if (descriptor.get("variant") != variant or type(version) is not int
+            or version not in (1, 2) or descriptor.get("feature_version") != version):
         raise ValueError("native descriptor variant/feature version mismatch")
     if not re.fullmatch(r"[0-9a-f]{64}", str(descriptor.get("rules_sha256", ""))):
         raise ValueError("missing native rule digest")
@@ -192,7 +194,9 @@ def validate_state(state: dict, variant: str, expected: dict | None = None) -> d
             and all(type(kind) is int and kind > 0 for kind in types)
             and types == sorted(set(types))):
         raise ValueError("invalid native board/type descriptor")
-    dimension = 2 * len(types) * (width * height + 1)
+    area = width * height
+    base = 2 * len(types) * (area + 1)
+    dimension = base if version == 1 else base + 2 * len(types) * area + 4 + width + 6 * len(types)
     if (descriptor.get("input_dim") != dimension or descriptor.get("hidden_dim") != 64
             or descriptor.get("qa") != 256 or descriptor.get("qb") != 64):
         raise ValueError("native descriptor architecture mismatch")
@@ -208,7 +212,7 @@ def validate_state(state: dict, variant: str, expected: dict | None = None) -> d
         index, value = pair
         if not (previous < index < dimension and 0 < value <= 512):
             raise ValueError("out-of-range, duplicate, or unsorted native feature")
-        if index % (width * height + 1) < width * height and value != 1:
+        if index < base and index % (width * height + 1) < width * height and value != 1:
             raise ValueError("board feature must have value one")
         previous, total = index, total + value
     if total > 512:
@@ -279,6 +283,8 @@ def generate(args: argparse.Namespace) -> dict:
     build, build_path = build_metadata(executable)
     started = time.monotonic()
     engine = Engine(executable, args.timeout)
+    engine.feature_version = args.nnue_version
+    generator_version = GENERATOR_VERSION if args.nnue_version == 1 else "svnnue-selfplay-v2"
     positions_path, games_path = output / "positions.jsonl", output / "games.jsonl"
     row_count = completed = truncated = skipped_labels = 0
     opening_plies = min(args.opening_plies, args.max_plies // 4)
@@ -293,7 +299,7 @@ def generate(args: argparse.Namespace) -> dict:
             engine.option(name, value)
         with positions_path.open("x", encoding="utf-8") as positions_file, games_path.open("x", encoding="utf-8") as games_file:
             for game_index in range(args.games):
-                seed_material = f"{GENERATOR_VERSION}:{args.variant}:{args.seed}:{game_index}"
+                seed_material = f"{generator_version}:{args.variant}:{args.seed}:{game_index}"
                 game_seed = int.from_bytes(hashlib.sha256(seed_material.encode()).digest()[:8], "big")
                 rng = random.Random(game_seed)
                 engine.new_game()
@@ -339,7 +345,7 @@ def generate(args: argparse.Namespace) -> dict:
                     moves.append(bestmove)
                 assert state is not None and descriptor is not None and start_fen is not None
                 game_id = hashlib.sha256(canonical({
-                    "generator": GENERATOR_VERSION, "variant": args.variant,
+                    "generator": generator_version, "variant": args.variant,
                     "rules_sha256": descriptor["rules_sha256"], "engine_sha256": binary_sha,
                     "seed": game_seed, "depth": args.depth, "max_plies": args.max_plies,
                     "opening_plies": opening_plies,
@@ -370,7 +376,7 @@ def generate(args: argparse.Namespace) -> dict:
             raise RuntimeError("generation produced no exact-score training positions")
         source_commit, source_dirty = declared_source_identity(build, engine.engine_id)
         manifest = {
-            "schema": 1, "generator_version": GENERATOR_VERSION,
+            "schema": 1, "generator_version": generator_version,
             "generator_source_commit": source_revision(), "variant": args.variant,
             "descriptor": descriptor, "engine_sha256": binary_sha,
             "source_commit": source_commit,
@@ -442,6 +448,8 @@ def main() -> int:
     parser.add_argument("--opening-plies", type=bounded_int(0, 32), default=8)
     parser.add_argument("--timeout", type=bounded_int(1, 600), default=60)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--nnue-version", type=bounded_int(1, 2), default=1,
+                        help="1 stable SVNNUE-v1, 2 experimental native v2 inputs")
     parser.add_argument("--rich-context", action="store_true",
                         help="record native promoted lineage, rights and variant-region statistics for future SVNNUE-v2 work")
     args = parser.parse_args()

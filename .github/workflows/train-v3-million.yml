@@ -1,0 +1,185 @@
+name: Train v3 Lite on certified 1M distinct native inputs per game
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths: ['.github/workflows/train-v3-million.yml']
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: Total CPU epochs (2..6) with full optimizer recovery after first epoch
+        type: number
+        default: 2
+      batch_size:
+        description: Row-sparse CSR mini-batch size (64,128,256 or 512)
+        type: number
+        default: 256
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: v3-million-training-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  train:
+    if: github.repository == 'gaong5247-cmd/Stockless-variants'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VARIANT: ${{ matrix.variant }}
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      SOURCE_RUN: '40475358787'
+      SOURCE_SHA: '12063059cdabc355053f6c9373bfe9642858c63c'
+      RECOVERY_RUN: '40501421340'
+      RECOVERY_SHA: '084f3a27d9e23407758391feca09d9a0bf59a34c'
+      EPOCHS: ${{ inputs.epochs || 2 }}
+      BATCH_SIZE: ${{ inputs.batch_size || 256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Require independently certified five-game million-input recovery
+        run: |
+          set -euo pipefail
+          root="repos/$GITHUB_REPOSITORY/actions/runs"
+          [ "$(gh api "$root/$RECOVERY_RUN" --jq .head_sha)" = "$RECOVERY_SHA" ]
+          [ "$(gh api "$root/$RECOVERY_RUN" --jq .conclusion)" = success ]
+          [ "$(gh api "$root/$SOURCE_RUN" --jq .head_sha)" = "$SOURCE_SHA" ]
+          completed=$(gh api "$root/$SOURCE_RUN/jobs?per_page=100" --jq \
+            '[.jobs[] | select((.name | startswith("generate (")) and .conclusion=="success")] | length')
+          if [ "$completed" != 60 ]; then
+            echo "::error::Not all 60 source data jobs completed successfully"
+            exit 1
+          fi
+      - name: Verify bounded experiment
+        run: |
+          python - <<'PY'
+          import os
+          epochs=int(os.environ['EPOCHS'])
+          batch=int(os.environ['BATCH_SIZE'])
+          if not 2<=epochs<=6 or batch not in (64,128,256,512):
+              raise SystemExit('Invalid bounded epochs or sparse mini-batch')
+          print(f'Running {epochs} epochs; batch size {batch}')
+          PY
+      - name: Install pinned NumPy and SciPy sparse CPU dependencies
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40501421340
+          name: v3-recovered-proof-${{ matrix.variant }}
+          github-token: ${{ github.token }}
+          path: build/accepted
+      - name: Download all twelve exact original source artifacts, avoiding truncated listings
+        run: |
+          set -euo pipefail
+          for shard in $(seq 0 11); do
+            destination="build/source-shards/v3-diverse-data-$VARIANT-$shard"
+            mkdir -p "$destination"
+            gh run download "$SOURCE_RUN" -R "$GITHUB_REPOSITORY" \
+              --name "v3-diverse-data-$VARIANT-$shard" --dir "$destination"
+            [ -s "$destination/manifest.json" ] || {
+              echo "::error::Missing original source shard $shard"
+              exit 1
+            }
+          done
+      - name: Rehash original games and SHA256 native feature inputs against certified proof
+        run: |
+          python tools/recover_diverse_v3.py \
+            --source build/source-shards --variant "$VARIANT" \
+            --unique-goal 1000000 \
+            --output "build/independent-proof/$VARIANT.json"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,json
+          v=os.environ['VARIANT']
+          a=json.loads((Path('build/independent-proof')/(v+'.json')).read_text())
+          b=json.loads((Path('build/accepted')/(v+'.json')).read_text())
+          if a!=b or not a['unique_target_met']:
+              raise SystemExit('Source proof differs from certified data')
+          PY
+      - name: Bounded-RAM lossless merge of twelve audited original native shards
+        run: |
+          python tools/nnue/merge_diverse_v3.py \
+            --input-root build/source-shards --output build/corpus \
+            --variant "$VARIANT" --shards 12 --games-per-shard 1024
+      - name: Train first epoch with row-sparse AdaGrad transformer and dense-tail Adam
+        run: |
+          python tools/nnue/train_v3.py \
+            --data build/corpus --output build/nnue \
+            --epochs "$EPOCHS" --stop-after-epoch 1 \
+            --batch-size "$BATCH_SIZE" --seed 20261027 \
+            --optimizer sparse_ft_adagrad
+      - name: Restore all optimizer state and complete selected CPU epochs
+        run: |
+          python tools/nnue/train_v3.py \
+            --data build/corpus --output build/nnue \
+            --epochs "$EPOCHS" --batch-size "$BATCH_SIZE" \
+            --seed 20261027 --optimizer sparse_ft_adagrad --resume
+      - name: Compile source-compatible v3 C++ royal evaluator with AVX2
+        run: make build ARCH=x86-64-avx2 JOBS=2
+      - name: Verify 128 original heldout integer scores and four legal search/make-unmake cycles
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model-dir build/nnue --positions 128 \
+            --report build/nnue/native-validation.json
+      - name: Show verified unique data rows, model quality and native parity
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os
+          v=os.environ['VARIANT']
+          lines=[f'## SVNNUE3 {v}: independently verified large-data training']
+          proof=Path('build/independent-proof')/(v+'.json')
+          if proof.is_file():
+              p=json.loads(proof.read_text())
+              lines.append(f"Games {p['games']}; generated rows {p['generated_positions']}; "
+                           f"unique SHA256 features {p['unique_model_inputs_sha256']}.")
+          metrics=Path('build/nnue/metrics.json')
+          if metrics.is_file():
+              m=json.loads(metrics.read_text())
+              lines.append(f"Optimizer {m['optimizer']}; epochs {m['epochs_completed']}; "
+                           f"gradient steps {m['gradient_steps']}; best epoch {m['selected_epoch']}; "
+                           f"test MAE {m['test']['mae_cp']:.2f} native cp.")
+          native=Path('build/nnue/native-validation.json')
+          if native.is_file():
+              n=json.loads(native.read_text())
+              lines.append(f"C++ exact integer + legal-search checks: {n['passed']} passed / {n['failed']} failed.")
+          lines.append('No Elo or playing-strength claim; classical evaluation remains default.')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svnnue3-million-trained-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/independent-proof/${{ matrix.variant }}.json
+            build/corpus/manifest.json
+            build/nnue/*.svnnue
+            build/nnue/metrics.json
+            build/nnue/network-manifest.json
+            build/nnue/index-summary.json
+            build/nnue/native-validation.json
+            build/nnue/latest.json
+            build/nnue/state-epoch-*.npz
+            build/nnue/checkpoint_best.npz
+          retention-days: 30
+          if-no-files-found: warn

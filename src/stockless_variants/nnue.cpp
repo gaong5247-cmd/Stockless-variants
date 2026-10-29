@@ -1,6 +1,7 @@
 // Stockless Variants contributors, 2026. SPDX-License-Identifier: AGPL-3.0-only
 // Independent, bounded, quantized SVNNUE-v1 inference and transactional loader.
 #include "nnue.h"
+#include "v3.h"
 #include "nnue_rules.h"
 
 #include <algorithm>
@@ -27,8 +28,9 @@ constexpr const char* NativeVariants[] = {"chess", "shogi", "janggi", "xiangqi",
 constexpr std::size_t MaximumFileBytes = 4 * 1024 * 1024;
 constexpr std::int32_t MaximumBias = 1 << 20;
 constexpr std::uint8_t Magic[8] = {'S', 'V', 'N', 'N', 'U', 'E', '1', 0};
+constexpr std::uint8_t MagicV2[8] = {'S', 'V', 'N', 'N', 'U', 'E', '2', 0};
 
-enum class Backend { Classical, Auto, Neural };
+enum class Backend { Classical, Auto, Neural, V3 };
 
 struct Descriptor {
     std::string name;
@@ -37,7 +39,9 @@ struct Descriptor {
     int area = 0;
     std::vector<int> types;
     std::array<int, PIECE_TYPE_NB> type_index;
+    std::uint32_t base_dimensions = 0;
     std::uint32_t dimensions = 0;
+    bool v2 = false;
 };
 
 struct Model {
@@ -53,6 +57,7 @@ struct Model {
 std::unique_ptr<Model> model;
 Backend selected_backend = Backend::Classical;
 std::uint64_t network_generation = 1;
+bool last_file_is_v3 = false;
 
 static_assert(std::is_trivially_copyable<Accumulator>::value, "Position requires a POD accumulator");
 
@@ -72,8 +77,9 @@ std::string native_name(const Variant* variant) {
     return {};
 }
 
-Descriptor describe(const Variant* variant) {
+Descriptor describe(const Variant* variant, bool v2 = false) {
     Descriptor result;
+    result.v2 = v2;
     result.type_index.fill(-1);
     result.name = native_name(variant);
     if (result.name.empty())
@@ -86,7 +92,12 @@ Descriptor describe(const Variant* variant) {
             result.type_index[pt] = int(result.types.size());
             result.types.push_back(pt);
         }
-    result.dimensions = std::uint32_t(2 * result.types.size() * (result.area + 1));
+    const int typeCount = int(result.types.size());
+    result.base_dimensions = std::uint32_t(2 * typeCount * (result.area + 1));
+    // V2 includes independent promoted-origin board features, chess
+    // castling/en-passant rights and three per-piece regional buckets.
+    result.dimensions = result.base_dimensions
+       + (v2 ? std::uint32_t(2 * typeCount * result.area + 4 + result.width + 6 * typeCount) : 0);
     return result;
 }
 
@@ -232,7 +243,7 @@ bool compatible_position(const Position& pos) {
 }
 
 bool enabled() {
-    return selected_backend != Backend::Classical && bool(model);
+    return (selected_backend == Backend::Neural || selected_backend == Backend::Auto) && bool(model);
 }
 
 int feature_index(const Descriptor& descriptor, Piece pc, int slot) {
@@ -277,6 +288,90 @@ bool extract(const Position& pos, const Descriptor& descriptor,
     return true;
 }
 
+
+// SVNNUE-v2 adds a separate, dynamically computed transformer contribution.
+// The board/pocket accumulator remains incremental. Extra state (promoted
+// origins and castling/en-passant rights) must NEVER be updated by ordinary
+// put_piece()/move_piece() deltas; it is recomputed from the actual Position
+// before each neural evaluation, which also avoids stale make/unmake state.
+bool append_extra_features(const Position& pos, const Descriptor& descriptor,
+                           std::vector<std::pair<std::uint32_t, std::int32_t>>& extra,
+                           std::int32_t& mass) {
+    if (!descriptor.v2)
+        return true;
+    const int count = int(descriptor.types.size());
+    const std::uint32_t promoteBase = descriptor.base_dimensions;
+    const std::uint32_t castleBase = promoteBase + std::uint32_t(2 * count * descriptor.area);
+    const std::uint32_t epBase = castleBase + 4;
+    const std::uint32_t regionBase = epBase + std::uint32_t(descriptor.width);
+    std::vector<int> regional(6 * count, 0);
+    const bool palaceGame = descriptor.name == "janggi" || descriptor.name == "xiangqi";
+    const bool riverGame = descriptor.name == "xiangqi";
+    const bool promotionGame = descriptor.name == "shogi" || descriptor.name == "makruk";
+    for (int rank = 0; rank < descriptor.height; ++rank)
+        for (int file = 0; file < descriptor.width; ++file) {
+            const Square sq = make_square(File(file), Rank(rank));
+            const Piece piece = pos.piece_on(sq);
+            if (piece == NO_PIECE)
+                continue;
+            const int color = int(color_of(piece)), kind = int(type_of(piece));
+            const int type = kind < PIECE_TYPE_NB ? descriptor.type_index[kind] : -1;
+            if (color < 0 || color >= 2 || type < 0)
+                return false;
+            if (pos.is_promoted(sq)) {
+                const Piece nativeOrigin = pos.unpromoted_piece_on(sq);
+                const int originalType = int(type_of(nativeOrigin));
+                const int oldIndex = nativeOrigin != NO_PIECE && originalType < PIECE_TYPE_NB
+                                   ? descriptor.type_index[originalType] : -1;
+                if (oldIndex >= 0) {
+                    const auto index = promoteBase
+                        + std::uint32_t((color * count + oldIndex) * descriptor.area
+                                        + rank * descriptor.width + file);
+                    extra.emplace_back(index, 1);
+                    ++mass;
+                }
+            }
+            const int group = color * count + type;
+            if (palaceGame && file >= 3 && file <= 5
+                    && (rank <= 2 || rank >= descriptor.height - 3))
+                ++regional[group];
+            if (riverGame && (color == int(WHITE) ? rank >= 5 : rank <= 4))
+                ++regional[2 * count + group];
+            if (promotionGame && (color == int(WHITE)
+                                      ? rank >= descriptor.height - 3 : rank <= 2))
+                ++regional[4 * count + group];
+        }
+    if (descriptor.name == "chess") {
+        std::istringstream fen(pos.fen());
+        std::string board, stm, castle, ep;
+        if (!(fen >> board >> stm >> castle >> ep))
+            return false;
+        for (int i = 0; i < 4; ++i) {
+            const char bit = "KQkq"[i];
+            if (castle.find(bit) != std::string::npos) {
+                extra.emplace_back(castleBase + std::uint32_t(i), 1);
+                ++mass;
+            }
+        }
+        if (ep != "-" && !ep.empty()) {
+            const int file = int(ep[0]) - int('a');
+            if (file < 0 || file >= descriptor.width)
+                return false;
+            extra.emplace_back(epBase + std::uint32_t(file), 1);
+            ++mass;
+        }
+    }
+    for (int i = 0; i < int(regional.size()); ++i) {
+        if (regional[i] > 0) {
+            extra.emplace_back(regionBase + std::uint32_t(i), regional[i]);
+            mass += regional[i];
+        }
+    }
+    if (mass > MaximumFeatureMass)
+        return false;
+    return true;
+}
+
 void add_weights(std::array<std::int32_t, Hidden>& accumulator,
                  const std::int16_t* weights, std::int32_t amount) {
 #if defined(USE_AVX2)
@@ -312,15 +407,32 @@ bool refresh(const Position& pos, Accumulator& accumulator) {
 
 bool ensure_accumulator(const Position& pos) {
     auto& accumulator = pos.stockless_nnue_accumulator();
-    return accumulator.generation == network_generation || refresh(pos, accumulator);
+    if (!(accumulator.generation == network_generation || refresh(pos, accumulator)))
+        return false;
+    if (model && model->descriptor.v2) {
+        std::vector<std::pair<std::uint32_t, std::int32_t>> extra;
+        std::int32_t mass = accumulator.feature_mass;
+        return append_extra_features(pos, model->descriptor, extra, mass);
+    }
+    return true;
 }
 
 std::int64_t numerator(const Position& pos, const Accumulator& accumulator) {
     const auto head = pos.side_to_move();
+    std::array<std::int32_t, Hidden> combined = accumulator.values;
+    if (model->descriptor.v2) {
+        std::vector<std::pair<std::uint32_t, std::int32_t>> extra;
+        std::int32_t mass = accumulator.feature_mass;
+        if (!append_extra_features(pos, model->descriptor, extra, mass))
+            return 0; // applicable() already rejected this state
+        for (const auto& feature : extra)
+            add_weights(combined, model->input_weights.data()
+                        + std::size_t(feature.first) * Hidden, feature.second);
+    }
     std::int64_t result = model->output_bias[head];
     for (unsigned i = 0; i < Hidden; ++i)
         result += std::int64_t(model->output_weights[head][i])
-                * std::clamp(accumulator.values[i], std::int32_t(0), std::int32_t(QA));
+                * std::clamp(combined[i], std::int32_t(0), std::int32_t(QA));
     return result;
 }
 
@@ -370,11 +482,12 @@ std::string variant_name(const Variant* variant) {
     return {};
 }
 
-std::string descriptor_json(const Variant* variant) {
-    const auto descriptor = describe(variant);
+std::string descriptor_json(const Variant* variant, bool v2) {
+    const auto descriptor = describe(variant, v2);
     std::ostringstream stream;
     stream << "{\"supported\":" << (descriptor.name.empty() ? "false" : "true")
-           << ",\"format_version\":" << FormatVersion << ",\"feature_version\":" << FeatureVersion
+           << ",\"format_version\":" << (v2 ? V2FormatVersion : FormatVersion)
+           << ",\"feature_version\":" << (v2 ? V2FeatureVersion : FeatureVersion)
            << ",\"variant\":" << quote(variant_name(variant))
            << ",\"rules_sha256\":" << quote(STOCKLESS_NNUE_RULES_SHA256)
            << ",\"width\":" << descriptor.width << ",\"height\":" << descriptor.height
@@ -391,19 +504,34 @@ std::string descriptor_json(const Variant* variant) {
     return stream.str();
 }
 
-std::vector<std::pair<std::uint32_t, std::int32_t>> sparse_features(const Position& pos) {
+std::vector<std::pair<std::uint32_t, std::int32_t>> sparse_features(const Position& pos, bool v2) {
     std::vector<std::pair<std::uint32_t, std::int32_t>> result;
-    std::int32_t mass;
-    if (!extract(pos, describe(pos.variant()), result, mass))
+    std::int32_t mass = 0;
+    const auto descriptor = describe(pos.variant(), v2);
+    if (!extract(pos, descriptor, result, mass)
+            || (v2 && !append_extra_features(pos, descriptor, result, mass)))
         result.clear();
+    else
+        std::sort(result.begin(), result.end());
     return result;
 }
 
 bool load_network(const std::string& path, const Variant* variant, std::string& error) {
     error.clear();
-    const auto descriptor = describe(variant);
+    {
+        std::ifstream candidate(path, std::ios::binary);
+        std::array<char,8> first{};
+        if (candidate.read(first.data(), std::streamsize(first.size()))
+            && std::string(first.data(),7)=="SVNNUE3") {
+            if (!V3::load(path,variant,error))
+                return false;
+            last_file_is_v3=true;
+            return true;
+        }
+    }
+    auto descriptor = describe(variant);
     if (descriptor.name.empty()) {
-        error = "SVNNUE-v1 does not support this variant";
+        error = "SVNNUE-v1/v2 does not support this variant";
         return false;
     }
     std::ifstream input(path, std::ios::binary | std::ios::ate);
@@ -422,11 +550,16 @@ bool load_network(const std::string& path, const Variant* variant, std::string& 
         error = "truncated SVNNUE network file";
         return false;
     }
-    if (!std::equal(std::begin(Magic), std::end(Magic), bytes.begin())) {
-        error = "unsupported network magic; expected independent SVNNUE-v1";
+    const bool oldFormat = std::equal(std::begin(Magic), std::end(Magic), bytes.begin());
+    const bool newFormat = std::equal(std::begin(MagicV2), std::end(MagicV2), bytes.begin());
+    if (!oldFormat && !newFormat) {
+        error = "unsupported network magic; expected independent SVNNUE-v1/v2";
         return false;
     }
-    const std::uint32_t expected[] = {FormatVersion, FeatureVersion, Hidden, descriptor.dimensions,
+    descriptor = describe(variant, newFormat);
+    const std::uint32_t expected[] = {newFormat ? V2FormatVersion : FormatVersion,
+                                      newFormat ? V2FeatureVersion : FeatureVersion,
+                                      Hidden, descriptor.dimensions,
                                      std::uint32_t(descriptor.width), std::uint32_t(descriptor.height),
                                      std::uint32_t(descriptor.types.size()), QA, QB};
     for (unsigned i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i)
@@ -488,6 +621,7 @@ bool load_network(const std::string& path, const Variant* variant, std::string& 
         offset += 4;
     }
     model = std::move(candidate);
+    last_file_is_v3=false;
     advance_generation();
     return true;
 }
@@ -503,6 +637,12 @@ bool select_backend(const std::string& name, const Variant* variant, std::string
             return false;
         }
         next = Backend::Neural;
+    } else if (name == "StocklessNNUEv3") {
+        if (!V3::compatible(variant)) {
+            error = "StocklessNNUEv3 requires a verified compatible SVNNUE3 EvalFile";
+            return false;
+        }
+        next = Backend::V3;
     } else {
         error = "unsupported evaluation backend";
         return false;
@@ -511,25 +651,32 @@ bool select_backend(const std::string& name, const Variant* variant, std::string
         selected_backend = next;
         advance_generation();
     }
+    V3::activate(next == Backend::V3);
     return true;
 }
 
 void variant_changed(const Variant* variant) {
-    if (selected_backend == Backend::Neural && !compatible_variant(variant))
+    if ((selected_backend == Backend::Neural && !compatible_variant(variant))
+        || (selected_backend == Backend::V3 && !V3::compatible(variant)))
         selected_backend = Backend::Classical;
+    V3::activate(selected_backend == Backend::V3);
+    V3::invalidate();
     advance_generation();
 }
 
 const char* backend_name() {
     return selected_backend == Backend::Classical ? "Classical"
-         : selected_backend == Backend::Auto ? "Auto" : "StocklessNNUE";
+         : selected_backend == Backend::Auto ? "Auto"
+         : selected_backend == Backend::V3 ? "StocklessNNUEv3" : "StocklessNNUE";
 }
 
 std::string loaded_file() {
-    return model ? model->file : "<empty>";
+    return last_file_is_v3 ? V3::file() : model ? model->file : "<empty>";
 }
 
 std::string status_json(const Variant* variant) {
+    if (selected_backend == Backend::V3)
+        return V3::status_json(variant);
     std::ostringstream stream;
     stream << "{\"backend\":" << quote(backend_name())
            << ",\"loaded\":" << (model ? "true" : "false")
@@ -538,6 +685,7 @@ std::string status_json(const Variant* variant) {
            << ",\"generation\":" << network_generation
            << ",\"variant\":" << quote(variant_name(variant))
            << ",\"model_variant\":" << quote(model ? model->descriptor.name : "")
+           << ",\"model_format_version\":" << (model ? (model->descriptor.v2 ? 2 : 1) : 0)
            << ",\"rules_sha256\":" << quote(STOCKLESS_NNUE_RULES_SHA256)
            << ",\"file\":" << quote(model ? model->file : "")
 #if defined(USE_AVX2)
@@ -588,6 +736,8 @@ Probe probe(const Position& pos, bool compare_refresh) {
 }
 
 std::string evaluation_json(const Position& pos) {
+    if (selected_backend == Backend::V3)
+        return V3::evaluation_json(pos);
     const auto result = probe(pos);
     std::ostringstream stream;
     stream << "{\"backend\":" << quote(backend_name())

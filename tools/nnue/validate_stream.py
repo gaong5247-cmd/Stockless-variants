@@ -68,6 +68,7 @@ def run(engine_path,index,model_dir,positions,seed,report):
             "checks":0,"failed":0,"positions_checked":0,"searches_checked":0,
             "elo":None,"strength_validated":False}
     try:
+        engine.feature_version = summary["descriptor"]["feature_version"]
         engine.option("UCI_Variant",summary["variant"])
         engine.option("Threads",1)
         engine.option("Hash",16)

@@ -1,0 +1,169 @@
+name: Train five 1M+ SVNNUE3 models with sparse FT and resumable Adam
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-train-certified-million.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: train-certified-svnnue3-millions-20261027
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VARIANT: ${{ matrix.variant }}
+      SOURCE_RUN: '40475358787'
+      SOURCE_SHA: '12063059cdabc355053f6c9373bfe9642858c63c'
+      PROOF_RUN: '40505070066'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install exact NumPy and SciPy CPU training dependencies
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Require independently successful million-distinct-input validation
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PROOF_RUN" --jq .conclusion)" = success
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq .head_sha)" = "$SOURCE_SHA"
+          mkdir -p build/certificate
+          gh run download "$PROOF_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "recovered-million-proof-$VARIANT" --dir build/certificate
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          p=json.loads((Path('build/certificate')/(os.environ['VARIANT']+'.json')).read_text())
+          assert p['variant']==os.environ['VARIANT']
+          assert p['unique_target_met'] and p['unique_model_inputs_sha256']>=1000000
+          assert p['games']==12288 and p['shards']==12
+          print('Certified source model inputs:',p['unique_model_inputs_sha256'])
+          PY
+      - name: Download all twelve original game trajectories and royal feature tensors
+        run: |
+          set -euo pipefail
+          for i in $(seq 0 11); do
+            name="v3-diverse-data-$VARIANT-$i"
+            folder="build/received/$name"
+            mkdir -p "$folder"
+            gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+              --name "$name" --dir "$folder"
+            test -s "$folder/manifest.json"
+            test -s "$folder/positions.jsonl"
+            test -s "$folder/games.jsonl"
+          done
+      - name: Reverify and losslessly merge all 12 immutable source shards
+        run: |
+          python tools/nnue/merge_diverse_v3.py \
+            --input-root build/received \
+            --output "build/combined/$VARIANT" \
+            --variant "$VARIANT" --shards 12 --games-per-shard 1024
+      - name: Enforce unchanged manifest and original native label provenance
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          variant=os.environ['VARIANT']
+          proof=json.loads((Path('build/certificate')/(variant+'.json')).read_text())
+          merged=json.loads((Path('build/combined')/variant/'manifest.json').read_text())
+          assert merged['games']==proof['games']
+          assert merged['positions']==proof['generated_positions']
+          assert merged['descriptor']==proof['descriptor']
+          assert merged['native_engine_sha256']==proof['native_teacher_sha256']
+          assert len(merged['source_shards'])==12
+          for m,p in zip(merged['source_shards'],proof['source_shards']):
+              assert m['shard']==p['id']
+              assert m['manifest_sha256']==p['manifest_sha256']
+              assert m['positions']==p['positions']
+          print(f"Native {variant} corpus verified: {merged['positions']:,} rows; "
+                f"{proof['unique_model_inputs_sha256']:,} distinct inputs")
+          PY
+      - name: Train 2 epochs, persist complete optimizer and resume to epoch 6
+        run: |
+          set -euo pipefail
+          DATA="build/combined/$VARIANT"
+          OUT="build/trained/$VARIANT"
+          python tools/nnue/train_v3.py \
+            --data "$DATA" --output "$OUT" --epochs 6 \
+            --stop-after-epoch 2 --batch-size 256 --seed 20261027 \
+            --optimizer sparse_ft_adagrad
+          python tools/nnue/train_v3.py \
+            --data "$DATA" --output "$OUT" --epochs 6 \
+            --batch-size 256 --seed 20261027 \
+            --optimizer sparse_ft_adagrad --resume
+      - name: Restore the exact compatible native C++ teacher for numerical verification
+        run: |
+          set -euo pipefail
+          mkdir -p build/teacher
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "v3-diverse-teacher-$SOURCE_SHA" --dir build/teacher
+          tar -xzf build/teacher/stockless-v3-teacher.tgz
+          chmod +x build/engine/src/stockless-variants
+          sha256sum build/engine/src/stockless-variants
+      - name: Confirm v3 integer inference and legal searches on actual heldout games
+        run: |
+          python tools/nnue/validate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --model-dir "build/trained/$VARIANT" --positions 128 \
+            --report "build/trained/$VARIANT/native-validation.json"
+      - name: Report actual sample and model quality, never a fabricated Elo
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('build/trained')/os.environ['VARIANT']
+          lines=[f"## {os.environ['VARIANT']} 1M+ distinct SVNNUE3 inputs"]
+          idx=root/'index-summary.json'
+          if idx.exists():
+              j=json.loads(idx.read_text())
+              lines.append(f"Indexed rows {j['input_rows']}; distinct retained {j['distinct_rows']}. "
+                           f"Train/validation/test {j['partitions']}.")
+          report=root/'metrics.json'
+          if report.exists():
+              m=json.loads(report.read_text())
+              lines.append(f"Optimizer {m['optimizer']}; epochs {m['epochs_completed']}; "
+                           f"steps {m['gradient_steps']}; best epoch {m['selected_epoch']}.")
+              lines.append(f"Actual heldout teacher MAE {m['test']['mae_cp']:.3f} cp; "
+                           f"quantization passed {m['quantization_passed']}. Not an Elo.")
+          native=root/'native-validation.json'
+          if native.exists():
+              n=json.loads(native.read_text())
+              lines.append(f"Exact native signed evaluations + legal searches: {n['passed']}; failures {n['failed']}.")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svnnue3-million-trained-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/trained/${{ matrix.variant }}/*.svnnue
+            build/trained/${{ matrix.variant }}/state-epoch-*.npz
+            build/trained/${{ matrix.variant }}/latest.json
+            build/trained/${{ matrix.variant }}/metrics.json
+            build/trained/${{ matrix.variant }}/network-manifest.json
+            build/trained/${{ matrix.variant }}/index-summary.json
+            build/trained/${{ matrix.variant }}/native-validation.json
+          retention-days: 30
+          if-no-files-found: warn

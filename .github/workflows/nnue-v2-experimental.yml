@@ -1,0 +1,104 @@
+name: Experimental native SVNNUE-v2 rich-input parity
+
+on:
+  push:
+    branches: [experimental/svnnue-v2]
+    paths:
+      - 'src/stockless_variants/**'
+      - 'tools/nnue/**'
+      - 'tools/patch_training.py'
+      - '.github/workflows/nnue-v2-experimental.yml'
+      - 'tests/nnue_v2_contract_test.py'
+      - 'tests/nnue_sparse_training_test.py'
+      - 'tests/v2_native_features_test.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v2-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      TARGET: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned numerical trainer
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - name: Run Python SVNNUE-v1/v2 versioned format checks
+        run: python tests/nnue_v2_contract_test.py
+      - name: Measure sparse-versus-dense CPU NNUE training kernels with exact parity
+        run: mkdir -p build && python tests/nnue_sparse_training_test.py | tee build/nnue-sparse-bench.log
+      - name: Require a clean source tree before identity-bound materialization
+        run: test -z "$(git status --porcelain --untracked-files=normal)" || { git status --short; exit 1; }
+      - name: Build actual C++ rule and v1/v2 NNUE engine
+        run: make build ARCH=x86-64 JOBS=2
+      - name: Audit native v2 castling rights and unchanged v1 features
+        if: matrix.variant == 'chess'
+        run: python tests/v2_native_features_test.py --engine build/engine/src/stockless-variants
+      - name: Regress original v1 C++ network loader, model replacement and accumulators
+        if: matrix.variant == 'chess'
+        run: |
+          python tests/build_cpp_tests.py --out build/nnue-tests
+          python tests/nnue_validation_test.py             --engine build/engine/src/stockless-variants             --cpp-test build/nnue-tests/nnue_test             --fixture-dir build/v1-fixtures --report build/v1-compat.json
+      - name: Generate native games and versioned extra features from C++ Position
+        run: |
+          python tools/nnue/generate.py \
+            --engine build/engine/src/stockless-variants --variant "$TARGET" \
+            --games 32 --max-plies 96 --depth 2 --seed 20261029 \
+            --nnue-version 2 --rich-context \
+            --output "build/v2/$TARGET/data"
+      - name: Train versioned v2 network without mixing v1 features
+        run: |
+          python tools/nnue/train.py --data "build/v2/$TARGET/data" \
+            --output "build/v2/$TARGET/model" --epochs 8 --batch-size 64 \
+            --seed 20261029
+      - name: Verify native v2 inference, accumulator parity and legal search
+        run: |
+          python tools/nnue/validate.py \
+            --engine build/engine/src/stockless-variants \
+            --data "build/v2/$TARGET/data" \
+            --model-dir "build/v2/$TARGET/model" \
+            --report "build/v2/$TARGET/runtime-validation.json" --positions 32
+      - name: Train actual v2 native sample through CSR with exact Adam resume
+        run: |
+          python tools/nnue/train_stream.py             --data "build/v2/$TARGET/data" --output "build/v2/$TARGET/csr-model"             --epochs 3 --stop-after-epoch 1 --batch-size 64 --seed 20261029 --compute-kernel csr
+          python tools/nnue/train_stream.py             --data "build/v2/$TARGET/data" --output "build/v2/$TARGET/csr-model"             --epochs 3 --resume --batch-size 64 --seed 20261029 --compute-kernel csr
+      - name: Validate CSR-trained v2 file with actual C++ native search
+        run: |
+          python tools/nnue/validate_stream.py             --engine build/engine/src/stockless-variants             --index "build/v2/$TARGET/csr-model/index.sqlite3"             --model-dir "build/v2/$TARGET/csr-model"             --positions 16 --report "build/v2/$TARGET/csr-native-validation.json"
+      - name: Require correct v2 magic and version in trained artifact
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          variant=os.environ["TARGET"]
+          model=Path("build/v2")/variant/"model"/(variant+".svnnue")
+          if model.read_bytes()[:8]!=b"SVNNUE2\x00":
+              raise SystemExit("Native v2 training exported wrong file magic")
+          report=json.loads((model.parent.parent/"runtime-validation.json").read_text())
+          if report["failed"]!=0 or report["passed"]<32:
+              raise SystemExit("Native v2 exact-integer parity gate failed")
+          print(variant,report["passed"],"native SVNNUE-v2 checks passed")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-pilot-${{ matrix.variant }}
+          path: build/v2/${{ matrix.variant }}/
+          retention-days: 14
+          if-no-files-found: warn

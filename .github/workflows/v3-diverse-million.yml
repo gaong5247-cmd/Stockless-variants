@@ -1,0 +1,239 @@
+name: SVNNUE3 five-game diverse million-unique-position campaign
+
+on:
+  push:
+    branches: [experimental/svnnue-v3-lite]
+    paths:
+      - '.github/workflows/v3-diverse-million.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v3-diverse-million-20261027-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  teacher:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build one identical pinned native classical teacher
+        run: |
+          set -euo pipefail
+          make build ARCH=x86-64 JOBS=2
+          mkdir -p build/teacher
+          tar -czf build/teacher/stockless-v3-teacher.tgz \
+            build/engine/src/stockless-variants \
+            build/engine/build-manifest.json
+          sha256sum build/engine/src/stockless-variants
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v3-diverse-teacher-${{ github.sha }}
+          path: build/teacher/stockless-v3-teacher.tgz
+          retention-days: 14
+          if-no-files-found: error
+
+  generate:
+    needs: teacher
+    runs-on: ubuntu-24.04
+    timeout-minutes: 335
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    env:
+      VARIANT: ${{ matrix.variant }}
+      SHARD: ${{ matrix.shard }}
+      DATASET: build/diverse/${{ matrix.variant }}/${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/nnue/requirements.txt
+      - name: Install pinned native feature/NumPy dependencies
+        run: python -m pip install -r tools/nnue/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: v3-diverse-teacher-${{ github.sha }}
+          path: build/teacher
+      - name: Restore byte-identical teacher engine and feature rules
+        run: |
+          set -euo pipefail
+          tar -xzf build/teacher/stockless-v3-teacher.tgz
+          chmod +x build/engine/src/stockless-variants
+          sha256sum build/engine/src/stockless-variants
+      - name: Generate 1024 real legal games with one of four diverse profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$SHARD" in
+            0|1|2) profile=balanced; depth=4;;
+            3|4|5) profile=multipv; depth=4;;
+            6|7|8) profile=deep; depth=5;;
+            9|10|11) profile=exploration; depth=3;;
+            *) exit 1;;
+          esac
+          seed=$((20261027 + SHARD * 100003))
+          python tools/nnue/generate_v3.py \
+            --engine build/engine/src/stockless-variants \
+            --variant "$VARIANT" --games 1024 --max-plies 216 \
+            --profile "$profile" --shard-id "$SHARD" \
+            --seed "$seed" --depth "$depth" --timeout 120 \
+            --output "$DATASET"
+      - name: Verify every game, every label, every SHA-256 input and original source bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$SHARD" in
+            0|1|2) profile=balanced;;
+            3|4|5) profile=multipv;;
+            6|7|8) profile=deep;;
+            9|10|11) profile=exploration;;
+          esac
+          python tools/nnue/verify_diverse_shard.py \
+            --data "$DATASET" --variant "$VARIANT" --shard "$SHARD" \
+            --profile "$profile" --min-games 1024
+      - name: Report confirmed rows, censored native results and sampling diversity
+        run: |
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          root=Path(os.environ['DATASET'])
+          m=json.loads((root/'manifest.json').read_text())
+          a=json.loads((root/'audit.json').read_text())
+          assert a['verified'] and a['positions']==m['positions']
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"### {m['variant']} shard {m['shard_id']} ({m['profile']})\n\n")
+              f.write(f"Native legal games: {m['games']}; labeled positions: {m['positions']}; ")
+              f.write(f"distinct within shard: {a['distinct_fingerprints_within_shard']}.\n\n")
+              f.write(f"Finished: {m['completed_games']}; censored/unfinished: {m['censored_games']}.\n\n")
+              f.write(f"Real teacher depths: {a['teacher_depth_distribution']}; "
+                      f"trajectory move sources: {a['move_source_counts']}.\n")
+          PY
+      - name: Upload fully audited source games, FEN, dual features, scores and hashes
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-diverse-data-${{ matrix.variant }}-${{ matrix.shard }}
+          path: build/diverse/${{ matrix.variant }}/${{ matrix.shard }}/
+          retention-days: 14
+          compression-level: 8
+          if-no-files-found: error
+      - name: Upload compact independent profile, fingerprint and source audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-diverse-audit-${{ matrix.variant }}-${{ matrix.shard }}
+          path: |
+            build/diverse/${{ matrix.variant }}/${{ matrix.shard }}/audit.json
+            build/diverse/${{ matrix.variant }}/${{ matrix.shard }}/fingerprints.sha256.bin
+          retention-days: 30
+          compression-level: 6
+          if-no-files-found: error
+
+  per-variant-count:
+    needs: generate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        variant: [chess, shogi, janggi, xiangqi, makruk]
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v3-diverse-audit-${{ matrix.variant }}-*
+          path: build/audit-input
+          merge-multiple: false
+      - name: Verify 12 unique seeds, four sampling profiles, same native teacher and >1M distinct states
+        run: |
+          python tools/nnue/audit_diverse_campaign.py \
+            --input-root build/audit-input \
+            --variant "$VARIANT" --shards 12 --min-unique 1000000 \
+            --output "build/audit-summary/$VARIANT.json"
+      - name: Surface true unique position counts, never the requested target alone
+        run: |
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          v=os.environ['VARIANT']
+          j=json.loads((Path('build/audit-summary')/(v+'.json')).read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"## {v} one-million UNIQUE native-feature proof\n\n")
+              f.write(f"Games: {j['games']}; actual generated rows: {j['generated_positions']}; ")
+              f.write(f"distinct dual-perspective inputs: **{j['unique_model_inputs_sha256']}**; ")
+              f.write(f"duplicate input rows: {j['duplicate_positions']}.\n\n")
+              f.write(f"Four source profiles: {j['profiles_games']}; teacher depths: {j['teacher_depth_games']}.\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v3-diverse-accepted-${{ matrix.variant }}
+          path: build/audit-summary/${{ matrix.variant }}.json
+          retention-days: 90
+          if-no-files-found: error
+
+  certify-total:
+    needs: per-variant-count
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v3-diverse-accepted-*
+          path: build/proofs
+          merge-multiple: true
+      - name: Require all five games independently pass 1,000,000 unique states
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,json
+          root=Path('build/proofs')
+          results={}
+          names=('chess','shogi','janggi','xiangqi','makruk')
+          files=list(root.glob('*.json'))
+          if len(files)!=5:raise SystemExit(f'Missing unique-proof variants: {len(files)}')
+          for name in names:
+              src=root/(name+'.json')
+              if not src.exists():raise SystemExit(f'Missing native game proof {name}')
+              data=json.loads(src.read_text())
+              if data['variant']!=name or not data['unique_target_met']:
+                  raise SystemExit(f'Invalid or failed unique proof for {name}')
+              if data['unique_model_inputs_sha256']<1000000 or data['shards']!=12:
+                  raise SystemExit(f'{name} did not deliver 1,000,000 distinct inputs')
+              results[name]={"games":data['games'],"positions":data['generated_positions'],
+                             "unique_inputs":data['unique_model_inputs_sha256']}
+          total=sum(v['unique_inputs'] for v in results.values())
+          report={"schema":3,"source_campaign":"svnnue3-diverse-20261027",
+                  "games":results,"total_generated_positions":sum(v['positions'] for v in results.values()),
+                  "total_unique_inputs":total,"all_five_targets_met":total>=5000000,
+                  "training_done":False,"elo":None}
+          Path('accepted-campaign.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## Five native games: individually certified >=1,000,000 distinct SVNNUE3 inputs\n\n')
+              f.write('| Game | Generated positions | Unique SHA-256 royal inputs |\n')
+              f.write('| --- | ---: | ---: |\n')
+              for name,row in results.items():
+                  f.write(f"| {name} | {row['positions']:,} | {row['unique_inputs']:,} |\n")
+              f.write(f"\n**Total distinct across game-specific corpora: {total:,}.**\n")
+              f.write('This job verifies data, not a claim of trained model strength.\n')
+          if total<5000000:raise SystemExit('All-variant aggregate <5,000,000')
+          print(json.dumps(report))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v3-diverse-five-game-certificate
+          path: accepted-campaign.json
+          retention-days: 90
+          if-no-files-found: error

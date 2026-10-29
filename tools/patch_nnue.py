@@ -18,12 +18,14 @@ def apply(out: Path) -> None:
     src = out / "src"
     position = src / "position.h"
     replace(position, '#include "nnue/nnue_accumulator.h"\n',
-            '#include "nnue/nnue_accumulator.h"\n#include "stockless_core/nnue.h"\n')
+            '#include "nnue/nnue_accumulator.h"\n#include "stockless_core/nnue.h"\n#include "stockless_core/v3.h"\n')
     replace(position, '  StateInfo* state() const;\n', '''  StateInfo* state() const;
   Stockless::Neural::Accumulator& stockless_nnue_accumulator() const { return stocklessNnue; }
+  Stockless::Neural::V3::Accumulator& stockless_v3_accumulator() const { return stocklessV3; }
 ''')
     replace(position, '  // Data members\n  Piece board[SQUARE_NB];\n', '''  // Data members
   mutable Stockless::Neural::Accumulator stocklessNnue;
+  mutable Stockless::Neural::V3::Accumulator stocklessV3;
   Piece board[SQUARE_NB];
 ''')
     replace(position, '''inline void Position::put_piece(Piece pc, Square s, bool isPromoted, Piece unpromotedPc) {
@@ -32,6 +34,7 @@ def apply(out: Path) -> None:
 ''', '''inline void Position::put_piece(Piece pc, Square s, bool isPromoted, Piece unpromotedPc) {
 
   if (stocklessNnue.generation) Stockless::Neural::board_delta(*this, pc, s, 1);
+  if (stocklessV3.generation) Stockless::Neural::V3::board_delta(*this, pc, s, 1);
   board[s] = pc;
 ''')
     replace(position, '''inline void Position::remove_piece(Square s) {
@@ -41,6 +44,7 @@ def apply(out: Path) -> None:
 
   Piece pc = board[s];
   if (stocklessNnue.generation) Stockless::Neural::board_delta(*this, pc, s, -1);
+  if (stocklessV3.generation) Stockless::Neural::V3::board_delta(*this, pc, s, -1);
 ''')
     replace(position, '''inline void Position::move_piece(Square from, Square to) {
 
@@ -52,33 +56,41 @@ def apply(out: Path) -> None:
       Stockless::Neural::board_delta(*this, pc, from, -1);
       Stockless::Neural::board_delta(*this, pc, to, 1);
   }
+  if (stocklessV3.generation) {
+      Stockless::Neural::V3::board_delta(*this, pc, from, -1);
+      Stockless::Neural::V3::board_delta(*this, pc, to, 1);
+  }
 ''')
     replace(position, '''inline void Position::add_to_hand(Piece pc) {
   if (variant()->freeDrops) return;
 ''', '''inline void Position::add_to_hand(Piece pc) {
   if (variant()->freeDrops) return;
   if (stocklessNnue.generation) Stockless::Neural::pocket_delta(*this, pc, 1);
+  if (stocklessV3.generation) Stockless::Neural::V3::pocket_delta(*this, pc, 1);
 ''')
     replace(position, '''inline void Position::remove_from_hand(Piece pc) {
   if (variant()->freeDrops) return;
 ''', '''inline void Position::remove_from_hand(Piece pc) {
   if (variant()->freeDrops) return;
   if (stocklessNnue.generation) Stockless::Neural::pocket_delta(*this, pc, -1);
+  if (stocklessV3.generation) Stockless::Neural::V3::pocket_delta(*this, pc, -1);
 ''')
 
     makefile = src / "Makefile"
     replace(makefile, 'OBJS = $(notdir $(SRCS:.cpp=.o))\n',
-            'SRCS += stockless_core/nnue.cpp\n\nOBJS = $(notdir $(SRCS:.cpp=.o))\n')
+            'SRCS += stockless_core/nnue.cpp stockless_core/v3.cpp\n\nOBJS = $(notdir $(SRCS:.cpp=.o))\n')
     replace(makefile, 'VPATH = syzygy:nnue:nnue/features\n',
             'VPATH = syzygy:nnue:nnue/features:stockless_core\n')
     for name in ("evaluate.cpp", "uci.cpp", "ucioption.cpp"):
         replace(src / name, '#include "evaluate.h"\n',
-                '#include "evaluate.h"\n#include "stockless_core/nnue.h"\n')
+                '#include "evaluate.h"\n#include "stockless_core/nnue.h"\n#include "stockless_core/v3.h"\n')
 
     evaluation = src / "evaluate.cpp"
     replace(evaluation, '''  if (!Eval::useNNUE || !pos.nnue_applicable())
       v = Evaluation<NO_TRACE>(pos).value();
-''', '''  if (Stockless::Neural::applicable(pos))
+''', '''  if (Stockless::Neural::V3::applicable(pos))
+      v = Stockless::Neural::V3::evaluate_cached(pos);
+  else if (Stockless::Neural::applicable(pos))
       v = Stockless::Neural::evaluate(pos);
   else if (!Eval::useNNUE || !pos.nnue_applicable())
       v = Evaluation<NO_TRACE>(pos).value();
@@ -156,7 +168,7 @@ void on_eval_backend(const Option& o) {
     replace(option, 'info string ERROR NNUE unavailable: a validated variant network manifest is required',
             'info string ERROR Use NNUE selects the unavailable FSF network format; use EvalBackend StocklessNNUE with a validated SVNNUE EvalFile')
     replace(option, 'std::vector<std::string>{"Auto", "Classical"}, on_eval_backend',
-            'std::vector<std::string>{"Auto", "Classical", "StocklessNNUE"}, on_eval_backend')
+            'std::vector<std::string>{"Auto", "Classical", "StocklessNNUE", "StocklessNNUEv3"}, on_eval_backend')
     replace(option, '''    PSQT::init(v);
     // Position/material/pawn keys''', '''    PSQT::init(v);
     const std::string oldBackend = Stockless::Neural::backend_name();
